@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit App — Mockup v2</title>
+
+    <!--
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  FORGE — PRODUCTION ARCHITECTURE NOTES                          ║
+    ╠══════════════════════════════════════════════════════════════════╣
+    ║                                                                  ║
+    ║  DATA MODELS (PostgreSQL)                                        ║
+    ║  ─────────────────────────                                       ║
+    ║  users         { id, name, email, timezone, created_at }         ║
+    ║  goal_clusters { id, user_id, name, icon, color, sort_order }    ║
+    ║  milestones    { id, cluster_id, label, completed, sort_order }  ║
+    ║  habits        { id, cluster_id, name, frequency, roi_score,     ║
+    ║                  meta_label, is_active }                         ║
+    ║  habit_logs    { id, habit_id, user_id, log_date, completed_at } ║
+    ║  reflections   { id, user_id, week_start, q1, q2, q3 }          ║
+    ║                                                                  ║
+    ║  API DESIGN (RESTful, versioned)                                 ║
+    ║  ──────────────────────────────                                  ║
+    ║  GET    /api/v1/habits/today          today's habits + state     ║
+    ║  POST   /api/v1/habits/:id/complete   log a habit completion     ║
+    ║  DELETE /api/v1/habits/:id/complete   undo completion (same day) ║
+    ║  GET    /api/v1/goals                 clusters with milestones   ║
+    ║  PATCH  /api/v1/milestones/:id        toggle milestone done      ║
+    ║  GET    /api/v1/stats/weekly          weekly completion rates    ║
+    ║  POST   /api/v1/reflections           save honest hour entry     ║
+    ║  GET    /api/v1/users/me/streak       current streak count       ║
+    ║                                                                  ║
+    ║  TECH STACK                                                      ║
+    ║  ──────────                                                      ║
+    ║  Mobile app    React Native (Expo) — iOS + Android               ║
+    ║  Web app       Next.js 14 (App Router) — same component code     ║
+    ║  API           FastAPI (Python) — fits Gio's analytics stack     ║
+    ║  Database      PostgreSQL via Supabase (auth included)           ║
+    ║  Cache         Redis — streak counts, daily habit state          ║
+    ║  Analytics     BigQuery — habit_logs exported nightly via dbt    ║
+    ║                then visualised in Looker Studio (portfolio win)  ║
+    ║  Hosting       Vercel (frontend) + Railway (API)                 ║
+    ║                                                                  ║
+    ║  CACHING STRATEGY (Redis TTLs)                                   ║
+    ║  ──────────────────────────────                                  ║
+    ║  streak:{user_id}        → expires at midnight (user timezone)   ║
+    ║  habits:today:{user_id}  → expires at midnight (user timezone)   ║
+    ║  stats:weekly:{user_id}  → expires every 60 minutes             ║
+    ║                                                                  ║
+    ║  BigQuery Analytics Pipeline                                     ║
+    ║  ────────────────────────────                                    ║
+    ║  habit_logs (raw) → dbt models → fct_completion_rates,          ║
+    ║  fct_streak_history, fct_habit_roi → Looker Studio dashboard     ║
+    ║  NOTE: This doubles as Gio's consultancy proof-of-work           ║
+    ║                                                                  ║
+    ╚══════════════════════════════════════════════════════════════════╝
+    -->
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+        /* ── DESIGN TOKENS ─────────────────────────────────────────── */
+        :root {
+            --bg:       #080B10;
+            --surface:  #0D1117;
+            --surface2: #131C26;
+            --card:     rgba(255,255,255,0.035);
+            --card-h:   rgba(255,255,255,0.065);
+            --border:   rgba(255,255,255,0.08);
+            --border-b: rgba(255,255,255,0.15);
+
+            /*
+             * Cluster colors — semantic mapping:
+             *   orange = physical energy (body)
+             *   green  = financial growth (fin)
+             *   blue   = professional clarity (pro)
+             * Used consistently across every component.
+             */
+            --body:     #FB923C;
+            --body-dim: rgba(251,146,60,0.13);
+            --fin:      #4ADE80;
+            --fin-dim:  rgba(74,222,128,0.13);
+            --pro:      #60A5FA;
+            --pro-dim:  rgba(96,165,250,0.13);
+
+            --text:     #E8EEF7;
+            --muted:    #6B7A8D;
+            --subtle:   #1E2A38;
+
+            --r:  18px;
+            --rs: 12px;
+            --rx: 8px;
+        }
+
+        /* ── RESET ──────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        button, input, textarea { font-family: inherit; }
+        a { text-decoration: none; color: inherit; }
+
+        /* ── PAGE — centers the phone frame ─────────────────────────── */
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /*
+             * color MUST be set on body — without it, elements that inherit
+             * the browser default (black) become invisible on the dark bg.
+             */
+            color: var(--text);
+            background:
+                radial-gradient(ellipse at 15% 20%, rgba(96,165,250,0.09) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 80%, rgba(251,146,60,0.07) 0%, transparent 55%),
+                #060810;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            padding: 32px 0;
+        }
+
+        /* ── PHONE FRAME ─────────────────────────────────────────────── */
+        .phone {
+            width: 390px;
+            height: 844px;
+            background: var(--bg);
+            border-radius: 50px;
+            position: relative;
+            overflow: hidden;
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.1),
+                0 0 0 10px #0A0D14,
+                0 0 0 11px rgba(255,255,255,0.06),
+                0 60px 120px rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Dynamic island */
+        .island {
+            position: absolute;
+            top: 12px; left: 50%;
+            transform: translateX(-50%);
+            width: 120px; height: 34px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 50;
+        }
+
+        /* ── SCREEN LAYOUT ───────────────────────────────────────────── */
+        /*
+         * Each screen occupies the full phone height minus the bottom nav.
+         * The header and progress strip are flex-shrink: 0 (never scroll).
+         * Only .scroll-body scrolls.
+         */
+        .screens {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .screen.active { opacity: 1; pointer-events: all; }
+
+        .scroll-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 16px 24px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .scroll-body::-webkit-scrollbar { display: none; }
+
+        /* ── SHARED HEADER ───────────────────────────────────────────── */
+        .s-header {
+            flex-shrink: 0;
+            padding: 56px 20px 14px; /* top pad clears the dynamic island */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        /* Logo mark — no brand name until identity is decided */
+        .logo-mark {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: linear-gradient(135deg, var(--body), var(--pro));
+            flex-shrink: 0;
+        }
+        .streak-pill {
+            display: flex; align-items: center; gap: 5px;
+            background: rgba(255,160,50,0.1);
+            border: 1px solid rgba(255,160,50,0.2);
+            border-radius: 30px; padding: 5px 11px;
+            font-size: 13px; font-weight: 800; color: #FFA032;
+        }
+
+        /* ── TODAY: greeting ─────────────────────────────────────────── */
+        .greeting-block { padding: 0 20px 16px; flex-shrink: 0; }
+        .greeting-name {
+            font-size: 22px; font-weight: 900; letter-spacing: -0.6px;
+            color: var(--text);
+        }
+        .greeting-name span {
+            background: linear-gradient(135deg, var(--body), var(--pro));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .greeting-date { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+        /* ── TODAY: progress strip ───────────────────────────────────── */
+        /*
+         * Flat progress bar is more scannable on mobile than a ring.
+         * Updates live as habits are checked via updateProgress().
+         */
+        .progress-strip {
+            flex-shrink: 0;
+            padding: 0 20px 18px;
+        }
+        .progress-row {
+            display: flex; align-items: center;
+            justify-content: space-between; margin-bottom: 7px;
+        }
+        .progress-label { font-size: 11px; font-weight: 700; color: var(--muted); }
+        .progress-count { font-size: 11px; font-weight: 800; color: var(--text); }
+        .ptrack {
+            height: 6px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 3px; overflow: hidden;
+        }
+        .pfill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--pro), var(--body));
+            transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* ── TODAY: cluster sections ─────────────────────────────────── */
+        .cluster-section { margin-bottom: 12px; }
+
+        .cluster-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 4px; cursor: pointer; user-select: none;
+        }
+        .cluster-left { display: flex; align-items: center; gap: 8px; }
+        .cluster-icon {
+            width: 28px; height: 28px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .cs-body .cluster-icon { background: var(--body-dim); }
+        .cs-fin  .cluster-icon { background: var(--fin-dim);  }
+        .cs-pro  .cluster-icon { background: var(--pro-dim);  }
+
+        .cluster-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
+        .cs-body .cluster-title { color: var(--body); }
+        .cs-fin  .cluster-title { color: var(--fin);  }
+        .cs-pro  .cluster-title { color: var(--pro);  }
+
+        .cluster-badge {
+            font-size: 10px; font-weight: 700; padding: 2px 7px;
+            border-radius: 10px; color: var(--muted);
+            background: rgba(255,255,255,0.06);
+        }
+        .cluster-chevron {
+            font-size: 11px; color: var(--muted);
+            transition: transform 0.2s;
+        }
+        .cluster-section.collapsed .cluster-chevron { transform: rotate(-90deg); }
+
+        .cluster-habits { display: flex; flex-direction: column; gap: 7px; }
+        .cluster-section.collapsed .cluster-habits { display: none; }
+
+        /* ── HABIT CARD ──────────────────────────────────────────────── */
+        /*
+         * Minimum tap target: 48px height (Apple HIG / Google Material).
+         * The left border accent reinforces cluster color at a glance.
+         */
+        .habit {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-left-width: 3px;
+            border-radius: var(--rs);
+            padding: 13px 14px 13px 12px;
+            cursor: pointer; user-select: none;
+            transition: background 0.15s, opacity 0.3s;
+            min-height: 60px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .habit:active { background: var(--card-h); }
+        .habit.done { opacity: 0.42; }
+        .habit.done .habit-name { text-decoration: line-through; }
+
+        .hb { border-left-color: var(--body); }
+        .hf { border-left-color: var(--fin);  }
+        .hp { border-left-color: var(--pro);  }
+
+        .habit-body { flex: 1; min-width: 0; }
+        .habit-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+        .habit-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+        .habit-roi { font-size: 9px; color: #FFA032; letter-spacing: 0.5px; flex-shrink: 0; }
+
+        /* ── CHECKBOX — the core interaction ─────────────────────────── */
+        /*
+         * SVG circle: ring floods with cluster color, check draws in.
+         * See toggleHabit() in JS for the animation sequence.
+         */
+        .hcheck {
+            width: 24px; height: 24px; flex-shrink: 0;
+        }
+        .hcheck svg { display: block; overflow: visible; }
+
+        /* Circle background — fills on done */
+        .cb-bg {
+            fill: transparent;
+            transition: fill 0.2s ease;
+        }
+        /* Ring border */
+        .cb-ring {
+            fill: none; stroke-width: 2; stroke-linecap: round;
+            stroke-dasharray: 62.83;
+            stroke-dashoffset: 62.83;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+        /* Checkmark path */
+        .cb-mark {
+            fill: none; stroke: white; stroke-width: 2;
+            stroke-linecap: round; stroke-linejoin: round;
+            stroke-dasharray: 16;
+            stroke-dashoffset: 16;
+            transition: stroke-dashoffset 0.22s ease 0.15s;
+        }
+
+        /* Per-cluster ring color */
+        .hb .cb-ring { stroke: var(--body); }
+        .hf .cb-ring { stroke: var(--fin);  }
+        .hp .cb-ring { stroke: var(--pro);  }
+
+        /* Done state — ring fills, check draws */
+        .habit.done .cb-ring   { stroke-dashoffset: 0; }
+        .habit.done .cb-mark   { stroke-dashoffset: 0; }
+        .hb.done .cb-bg        { fill: var(--body); }
+        .hf.done .cb-bg        { fill: var(--fin);  }
+        .hp.done .cb-bg        { fill: var(--pro);  }
+
+        /* ── GOALS SCREEN ────────────────────────────────────────────── */
+        .goals-title {
+            font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+            padding: 0 4px 20px;
+        }
+
+        .goal-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 18px;
+            margin-bottom: 12px; position: relative; overflow: hidden;
+        }
+        .goal-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+        }
+        .gc-body::before { background: var(--body); }
+        .gc-fin::before  { background: var(--fin);  }
+        .gc-pro::before  { background: var(--pro);  }
+
+        .goal-top {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+        }
+        .goal-icon {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 18px;
+        }
+        .gc-body .goal-icon { background: var(--body-dim); }
+        .gc-fin  .goal-icon { background: var(--fin-dim);  }
+        .gc-pro  .goal-icon { background: var(--pro-dim);  }
+
+        .goal-info { flex: 1; }
+        .goal-name { font-size: 14px; font-weight: 800; }
+        .goal-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+        /* Milestone vertical timeline */
+        .milestones { padding-left: 4px; }
+        .ms-item {
+            display: flex; align-items: flex-start; gap: 12px;
+            cursor: pointer; user-select: none;
+        }
+        .ms-track {
+            display: flex; flex-direction: column; align-items: center;
+            flex-shrink: 0; width: 14px;
+        }
+        .ms-dot {
+            width: 13px; height: 13px; border-radius: 50%;
+            border: 2px solid var(--subtle);
+            background: transparent;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .ms-dot.done    { border-color: transparent; }
+        .ms-dot.current { box-shadow: 0 0 0 3px rgba(255,255,255,0.08); }
+
+        .gc-body .ms-dot.done    { background: var(--body); }
+        .gc-body .ms-dot.current { border-color: var(--body); }
+        .gc-fin  .ms-dot.done    { background: var(--fin); }
+        .gc-fin  .ms-dot.current { border-color: var(--fin); }
+        .gc-pro  .ms-dot.done    { background: var(--pro); }
+        .gc-pro  .ms-dot.current { border-color: var(--pro); }
+
+        .ms-connector {
+            width: 2px; flex: 1; min-height: 14px;
+            background: var(--subtle); margin-top: 2px;
+        }
+        .ms-item:last-child .ms-connector { display: none; }
+
+        .ms-label-wrap { padding: 0 0 16px; flex: 1; }
+        .ms-label {
+            font-size: 12px; font-weight: 600; color: var(--muted);
+            transition: color 0.2s;
+            padding-top: 0px;
+            line-height: 1.35;
+        }
+        .ms-item .ms-dot.done ~ * .ms-label,
+        .ms-label.done { color: var(--text); text-decoration: line-through; opacity: 0.5; }
+        .ms-label.current { color: var(--text); font-weight: 700; }
+
+        .habits-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 10px; font-weight: 700; color: var(--muted);
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px; padding: 3px 8px;
+            margin-top: 14px;
+        }
+
+        /* ── STATS SCREEN ────────────────────────────────────────────── */
+        .stats-title {
+            font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+            padding: 0 4px 20px;
+        }
+
+        .stat-section { margin-bottom: 20px; }
+        .stat-label {
+            font-size: 10px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; padding: 0 4px;
+        }
+
+        /* Horizontal bar chart — easier to read labels on mobile */
+        .bar-row {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 9px; padding: 0 4px;
+        }
+        .bar-day-label {
+            width: 28px; font-size: 11px; font-weight: 700;
+            color: var(--muted); flex-shrink: 0;
+        }
+        .bar-day-label.today-lbl { color: var(--pro); }
+
+        .bar-track {
+            flex: 1; height: 8px; border-radius: 4px;
+            background: rgba(255,255,255,0.05); overflow: hidden;
+            position: relative;
+        }
+        .bar-fill {
+            height: 100%; border-radius: 4px;
+            background: linear-gradient(90deg, var(--pro) 0%, var(--body) 100%);
+        }
+        /* Future days: dashed pattern instead of empty bar */
+        .bar-future .bar-track {
+            background: repeating-linear-gradient(
+                90deg,
+                rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 4px,
+                transparent 4px, transparent 9px
+            );
+        }
+        /* Live pulse dot for today */
+        .live-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--pro); flex-shrink: 0;
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.4; transform: scale(0.7); }
+        }
+
+        .bar-pct {
+            width: 36px; font-size: 11px; font-weight: 700;
+            text-align: right; color: var(--muted); flex-shrink: 0;
+        }
+        .bar-pct.today-pct { color: var(--pro); }
+
+        /* ROI list */
+        .roi-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 4px; border-bottom: 1px solid var(--border);
+        }
+        .roi-row:last-child { border-bottom: none; }
+        .roi-habit { font-size: 12px; color: var(--muted); }
+        .roi-rate  { font-size: 12px; font-weight: 800; }
+
+        /* Honest Hour — prominent card, not buried */
+        /*
+         * This is the most differentiated feature of the product.
+         * It must be visually prominent. Do not bury it.
+         */
+        .honest-card {
+            background: linear-gradient(135deg, rgba(96,165,250,0.14), rgba(251,146,60,0.08));
+            border: 1px solid rgba(96,165,250,0.22);
+            border-radius: var(--r); padding: 18px; margin: 0 4px;
+        }
+        .honest-eyebrow {
+            font-size: 10px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--pro); margin-bottom: 6px;
+        }
+        .honest-heading { font-size: 16px; font-weight: 900; margin-bottom: 4px; }
+        .honest-sub     { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.4; }
+        .honest-btn {
+            width: 100%; padding: 12px;
+            background: linear-gradient(135deg, var(--pro), var(--body));
+            border: none; border-radius: var(--rs);
+            color: #fff; font-size: 13px; font-weight: 700;
+            cursor: pointer; transition: opacity 0.2s;
+        }
+        .honest-btn:active { opacity: 0.8; }
+
+        /* ── BOTTOM NAV ──────────────────────────────────────────────── */
+        .bottom-nav {
+            flex-shrink: 0; height: 72px;
+            background: rgba(13,13,34,0.96);
+            border-top: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            display: flex; align-items: center; justify-content: space-around;
+            padding-bottom: 8px;
+        }
+        .nav-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            cursor: pointer; padding: 6px 20px; border-radius: var(--rs);
+            transition: all 0.15s; border: none; background: none;
+            color: var(--muted);
+        }
+        .nav-btn.active { color: var(--pro); }
+        .nav-btn svg { width: 22px; height: 22px; }
+        .nav-label-text { font-size: 10px; font-weight: 700; }
+
+        /* ── BOTTOM SHEET (Honest Hour) ──────────────────────────────── */
+        /*
+         * Bottom sheet is positioned inside .phone to stay within the frame.
+         * Slides up from bottom on open, slides down on close.
+         */
+        .sheet-backdrop {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s; z-index: 40;
+        }
+        .sheet-backdrop.open { opacity: 1; pointer-events: all; }
+
+        .bottom-sheet {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: var(--surface2);
+            border-radius: 28px 28px 0 0;
+            border-top: 1px solid var(--border-b);
+            padding: 12px 20px 32px;
+            transform: translateY(100%);
+            transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+            z-index: 41; max-height: 78%;
+            overflow-y: auto;
+        }
+        .bottom-sheet.open { transform: translateY(0); }
+
+        .sheet-handle {
+            width: 36px; height: 4px; border-radius: 2px;
+            background: var(--border-b); margin: 0 auto 20px;
+        }
+        .sheet-title { font-size: 18px; font-weight: 900; letter-spacing: -0.4px; margin-bottom: 4px; }
+        .sheet-sub   { font-size: 12px; color: var(--muted); margin-bottom: 22px; }
+
+        .q-block { margin-bottom: 16px; }
+        .q-label {
+            font-size: 10px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--muted); margin-bottom: 7px;
+        }
+        .q-input {
+            width: 100%; background: var(--card);
+            border: 1px solid var(--border); border-radius: var(--rs);
+            padding: 11px 13px; color: var(--text);
+            font-size: 13px; line-height: 1.5; resize: none; outline: none;
+            transition: border-color 0.15s;
+        }
+        .q-input:focus { border-color: var(--pro); }
+        ::placeholder { color: var(--muted); }
+
+        .sheet-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-cancel {
+            flex: 1; padding: 12px; border-radius: var(--rs);
+            background: var(--card); border: 1px solid var(--border);
+            color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-cancel:active { background: var(--card-h); }
+        .btn-save {
+            flex: 2; padding: 12px; border-radius: var(--rs);
+            background: linear-gradient(135deg, var(--pro), var(--body));
+            border: none; color: #fff;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-save:active { opacity: 0.8; }
+
+        /* ── PARTICLE BURST ──────────────────────────────────────────── */
+        /* Particles are spawned via JS and removed after animation ends */
+        .particle {
+            position: fixed;
+            width: 5px; height: 5px; border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+        }
+
+        /* ── KEYFRAME ANIMATIONS ─────────────────────────────────────── */
+        @keyframes check-pop {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .check-bounce { animation: check-pop 0.25s ease; }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  PHONE FRAME                                               -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="phone" id="phone">
+
+    <!-- Dynamic island -->
+    <div class="island"></div>
+
+    <!-- ── SCREENS ── -->
+    <div class="screens">
+
+        <!-- ──────── TODAY SCREEN ──────── -->
+        <div class="screen active" id="s-today">
+
+            <div class="s-header">
+                <div class="logo-mark"></div>
+                <div class="streak-pill">🔥 <span>12</span></div>
+            </div>
+
+            <div class="greeting-block">
+                <div class="greeting-name">Good morning, <span>Gio.</span></div>
+                <div class="greeting-date">Thursday · May 28, 2026</div>
+            </div>
+
+            <div class="progress-strip">
+                <div class="progress-row">
+                    <span class="progress-label">TODAY'S PROGRESS</span>
+                    <span class="progress-count" id="prog-count">3 / 9 done</span>
+                </div>
+                <div class="ptrack">
+                    <div class="pfill" id="prog-fill" style="width:33.3%"></div>
+                </div>
+            </div>
+
+            <!-- Habit list — rendered by JS into this container -->
+            <div class="scroll-body" id="habit-list-root"></div>
+
+        </div>
+
+        <!-- ──────── GOALS SCREEN ──────── -->
+        <div class="screen" id="s-goals">
+
+            <div class="s-header">
+                <div class="logo-mark"></div>
+                <div class="streak-pill">🔥 <span>12</span></div>
+            </div>
+
+            <div class="scroll-body" id="goals-root">
+                <div class="goals-title">Your Root Goals</div>
+                <!-- Rendered by JS -->
+            </div>
+
+        </div>
+
+        <!-- ──────── STATS SCREEN ──────── -->
+        <div class="screen" id="s-stats">
+
+            <div class="s-header">
+                <div class="logo-mark"></div>
+                <div class="streak-pill">🔥 <span>12</span></div>
+            </div>
+
+            <div class="scroll-body" id="stats-root">
+                <div class="stats-title">Insights</div>
+                <!-- Rendered by JS -->
+            </div>
+
+        </div>
+
+    </div><!-- /screens -->
+
+    <!-- ── BOTTOM NAV ── -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" id="nav-today" onclick="switchTab('today')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+            <span class="nav-label-text">Today</span>
+        </button>
+        <button class="nav-btn" id="nav-goals" onclick="switchTab('goals')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="12" cy="12" r="9"/>
+                <circle cx="12" cy="12" r="4"/>
+                <line x1="12" y1="3" x2="12" y2="1"/>
+            </svg>
+            <span class="nav-label-text">Goals</span>
+        </button>
+        <button class="nav-btn" id="nav-stats" onclick="switchTab('stats')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <span class="nav-label-text">Stats</span>
+        </button>
+    </nav>
+
+    <!-- ── BOTTOM SHEET: Honest Hour ── -->
+    <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeSheet()"></div>
+    <div class="bottom-sheet" id="honest-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Weekly Honest Hour</div>
+        <div class="sheet-sub">3 questions. No spin. Just truth — takes 5 min.</div>
+
+        <div class="q-block">
+            <div class="q-label">What actually worked this week?</div>
+            <textarea class="q-input" rows="2"
+                placeholder="e.g. Hit all BJJ sessions. Deep work block was solid Mon + Tue."></textarea>
+        </div>
+        <div class="q-block">
+            <div class="q-label">What got in the way?</div>
+            <textarea class="q-input" rows="2"
+                placeholder="e.g. Missed expense logging twice. Social plans broke routine Weds."></textarea>
+        </div>
+        <div class="q-block">
+            <div class="q-label">Theory for next week?</div>
+            <textarea class="q-input" rows="2"
+                placeholder="e.g. Set phone reminder for expenses. Block Weds for pipeline."></textarea>
+        </div>
+
+        <div class="sheet-actions">
+            <button class="btn-cancel" onclick="closeSheet()">Cancel</button>
+            <button class="btn-save" onclick="saveReflection()">Save Reflection →</button>
+        </div>
+    </div>
+
+</div><!-- /phone -->
+
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   DATA
+   In production: fetched from GET /api/v1/habits/today,
+   GET /api/v1/goals, GET /api/v1/stats/weekly
+═══════════════════════════════════════════════════════════════ */
+
+const habits = [
+    // Body cluster
+    { id: 1, cluster: 'body', cls: 'hb', name: 'Train BJJ — evening session',   meta: '2 of 4 this week · 60 min', roi: 4, done: false },
+    { id: 2, cluster: 'body', cls: 'hb', name: '10-min morning mobility',        meta: 'Recovery + injury prevention', roi: 2, done: false },
+    { id: 3, cluster: 'body', cls: 'hb', name: 'Hit protein target (140g)',       meta: 'Logged via MyFitnessPal', roi: 3, done: true  },
+    // Finance cluster
+    { id: 4, cluster: 'fin',  cls: 'hf', name: 'Log all expenses today',          meta: 'Daily tracking · 2 min', roi: 4, done: false },
+    { id: 5, cluster: 'fin',  cls: 'hf', name: 'Transfer €50 to savings',         meta: 'Automated on salary day', roi: 4, done: true  },
+    { id: 6, cluster: 'fin',  cls: 'hf', name: 'No impulse buys today',           meta: 'Review cart before checkout', roi: 2, done: false },
+    // Professional cluster
+    { id: 7, cluster: 'pro',  cls: 'hp', name: '1hr dbt + BigQuery deep work',    meta: 'No interruptions · pomodoro block', roi: 5, done: true  },
+    { id: 8, cluster: 'pro',  cls: 'hp', name: 'Write one consultancy idea',       meta: 'LinkedIn / notes · 15 min', roi: 3, done: false },
+    { id: 9, cluster: 'pro',  cls: 'hp', name: 'Review Looker dashboard',          meta: 'Charts, annotations, filters', roi: 3, done: false },
+];
+
+const clusters = [
+    { id: 'body', cls: 'cs-body', icon: '🥋', label: 'Body & Identity' },
+    { id: 'fin',  cls: 'cs-fin',  icon: '🏠', label: 'Financial Freedom' },
+    { id: 'pro',  cls: 'cs-pro',  icon: '📊', label: 'Professional Edge' },
+];
+
+const goals = [
+    {
+        id: 'body', cls: 'gc-body', icon: '🥋',
+        name: 'Body & Identity', sub: '70KG target · BJJ Black Belt',
+        habitsCount: 3,
+        milestones: [
+            { label: 'Hit 74KG',                   done: true,  current: false },
+            { label: 'Blue belt grading',           done: false, current: true  },
+            { label: 'Compete in first tournament', done: false, current: false },
+            { label: 'Black belt',                  done: false, current: false },
+        ],
+    },
+    {
+        id: 'fin', cls: 'gc-fin', icon: '🏠',
+        name: 'Financial Freedom', sub: 'Move out · Monthly surplus',
+        habitsCount: 3,
+        milestones: [
+            { label: '1-month emergency fund',               done: true,  current: false },
+            { label: '3-month emergency fund',               done: false, current: true  },
+            { label: 'Eliminate non-essential subscriptions',done: false, current: false },
+            { label: 'Move out',                             done: false, current: false },
+        ],
+    },
+    {
+        id: 'pro', cls: 'gc-pro', icon: '📊',
+        name: 'Professional Edge', sub: 'BigQuery + Looker · Consultancy',
+        habitsCount: 3,
+        milestones: [
+            { label: 'Pipeline MVP built',           done: true,  current: false },
+            { label: 'Stakeholder demo shipped',     done: false, current: true  },
+            { label: 'First consultancy client',     done: false, current: false },
+            { label: 'Quit day job (optional)',       done: false, current: false },
+        ],
+    },
+];
+
+// Weekly stats — null means the data doesn't exist yet (future or live)
+const weekData = [
+    { day: 'Mon', pct: 72,   live: false, future: false },
+    { day: 'Tue', pct: 88,   live: false, future: false },
+    { day: 'Wed', pct: 56,   live: false, future: false },
+    { day: 'Thu', pct: null, live: true,  future: false }, // today
+    { day: 'Fri', pct: null, live: false, future: true  },
+    { day: 'Sat', pct: null, live: false, future: true  },
+    { day: 'Sun', pct: null, live: false, future: true  },
+];
+
+const clusterColors = { body: '#FB923C', fin: '#4ADE80', pro: '#60A5FA' };
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER — TODAY SCREEN
+   Builds the habit list grouped by cluster. Each cluster section
+   is collapsible. Habits are rendered as interactive cards.
+═══════════════════════════════════════════════════════════════ */
+function renderToday() {
+    const root = document.getElementById('habit-list-root');
+    root.innerHTML = '';
+
+    clusters.forEach(cluster => {
+        const clusterHabits = habits.filter(h => h.cluster === cluster.id);
+        const doneCount = clusterHabits.filter(h => h.done).length;
+
+        const section = document.createElement('div');
+        section.className = `cluster-section ${cluster.cls}`;
+        section.id = `cs-${cluster.id}`;
+
+        section.innerHTML = `
+            <div class="cluster-header" onclick="toggleCluster('${cluster.id}')">
+                <div class="cluster-left">
+                    <div class="cluster-icon">${cluster.icon}</div>
+                    <span class="cluster-title">${cluster.label}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span class="cluster-badge">${doneCount}/${clusterHabits.length}</span>
+                    <span class="cluster-chevron">▾</span>
+                </div>
+            </div>
+            <div class="cluster-habits" id="ch-${cluster.id}">
+                ${clusterHabits.map(h => habitCardHTML(h)).join('')}
+            </div>
+        `;
+        root.appendChild(section);
+    });
+}
+
+/* Returns the HTML string for a single habit card */
+function habitCardHTML(h) {
+    const stars = '★'.repeat(h.roi) + '☆'.repeat(5 - h.roi);
+    return `
+        <div class="habit ${h.cls}${h.done ? ' done' : ''}"
+             id="habit-${h.id}"
+             onclick="toggleHabit(${h.id})">
+            <div class="hcheck ${h.cls}">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <circle class="cb-bg" cx="12" cy="12" r="10"/>
+                    <circle class="cb-ring" cx="12" cy="12" r="10"/>
+                    <polyline class="cb-mark" points="7,12.5 10.5,16 17,8"/>
+                </svg>
+            </div>
+            <div class="habit-body">
+                <div class="habit-name">${h.name}</div>
+                <div class="habit-meta">${h.meta}</div>
+            </div>
+            <div class="habit-roi">${stars}</div>
+        </div>
+    `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER — GOALS SCREEN
+   Milestone-based progress. User taps a milestone to toggle it.
+   In production: PATCH /api/v1/milestones/:id
+═══════════════════════════════════════════════════════════════ */
+function renderGoals() {
+    const root = document.getElementById('goals-root');
+    // Keep the title element, clear the rest
+    const title = root.querySelector('.goals-title');
+    root.innerHTML = '';
+    root.appendChild(title);
+
+    goals.forEach(g => {
+        const card = document.createElement('div');
+        card.className = `goal-card ${g.cls}`;
+        card.id = `gc-${g.id}`;
+
+        const milestonesHTML = g.milestones.map((m, i) => `
+            <div class="ms-item" onclick="toggleMilestone('${g.id}', ${i})">
+                <div class="ms-track">
+                    <div class="ms-dot ${m.done ? 'done' : m.current ? 'current' : ''}"></div>
+                    <div class="ms-connector"></div>
+                </div>
+                <div class="ms-label-wrap">
+                    <div class="ms-label ${m.done ? 'done' : m.current ? 'current' : ''}">${m.label}</div>
+                </div>
+            </div>
+        `).join('');
+
+        card.innerHTML = `
+            <div class="goal-top">
+                <div class="goal-icon">${g.icon}</div>
+                <div class="goal-info">
+                    <div class="goal-name">${g.name}</div>
+                    <div class="goal-sub">${g.sub}</div>
+                </div>
+            </div>
+            <div class="milestones">${milestonesHTML}</div>
+            <div class="habits-badge">↑ ${g.habitsCount} habits driving this goal</div>
+        `;
+        root.appendChild(card);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER — STATS SCREEN
+   Weekly chart + ROI list + Honest Hour card.
+═══════════════════════════════════════════════════════════════ */
+function renderStats() {
+    const root = document.getElementById('stats-root');
+    const title = root.querySelector('.stats-title');
+    root.innerHTML = '';
+    root.appendChild(title);
+
+    // Weekly chart
+    const chartSection = document.createElement('div');
+    chartSection.className = 'stat-section';
+    chartSection.innerHTML = `
+        <div class="stat-label">This Week</div>
+        ${weekData.map(d => {
+            if (d.future) {
+                return `
+                    <div class="bar-row bar-future">
+                        <span class="bar-day-label">${d.day}</span>
+                        <div class="bar-track"></div>
+                        <span class="bar-pct" style="color:var(--subtle);font-weight:600;font-size:10px">upcoming</span>
+                    </div>`;
+            }
+            if (d.live) {
+                const livePct = Math.round((habits.filter(h => h.done).length / habits.length) * 100);
+                return `
+                    <div class="bar-row">
+                        <span class="bar-day-label today-lbl">${d.day}</span>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width:${livePct}%"></div>
+                        </div>
+                        <div class="live-dot"></div>
+                        <span class="bar-pct today-pct">${livePct}%</span>
+                    </div>`;
+            }
+            return `
+                <div class="bar-row">
+                    <span class="bar-day-label">${d.day}</span>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:${d.pct}%"></div>
+                    </div>
+                    <span class="bar-pct">${d.pct}%</span>
+                </div>`;
+        }).join('')}
+    `;
+    root.appendChild(chartSection);
+
+    // ROI leaderboard
+    const roiSection = document.createElement('div');
+    roiSection.className = 'stat-section';
+    roiSection.innerHTML = `
+        <div class="stat-label">Top ROI Habits (4-week rate)</div>
+        <div class="roi-row">
+            <span class="roi-habit">Savings transfer</span>
+            <span class="roi-rate" style="color:var(--fin)">100%</span>
+        </div>
+        <div class="roi-row">
+            <span class="roi-habit">dbt + BigQuery deep work</span>
+            <span class="roi-rate" style="color:var(--pro)">92%</span>
+        </div>
+        <div class="roi-row">
+            <span class="roi-habit">BJJ training session</span>
+            <span class="roi-rate" style="color:var(--body)">89%</span>
+        </div>
+        <div class="roi-row">
+            <span class="roi-habit">Expense logging</span>
+            <span class="roi-rate" style="color:var(--fin)">71%</span>
+        </div>
+    `;
+    root.appendChild(roiSection);
+
+    // Honest Hour — must be visually prominent
+    const honestSection = document.createElement('div');
+    honestSection.className = 'stat-section';
+    honestSection.innerHTML = `
+        <div class="stat-label">Weekly Reflection</div>
+        <div class="honest-card">
+            <div class="honest-eyebrow">Sunday · Weekly Ritual</div>
+            <div class="honest-heading">Weekly Honest Hour</div>
+            <div class="honest-sub">
+                3 questions, no spin. The most important 5 minutes
+                of your week. Patterns only appear in retrospect.
+            </div>
+            <button class="honest-btn" onclick="openSheet()">
+                Start this week's reflection →
+            </button>
+        </div>
+    `;
+    root.appendChild(honestSection);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTION — TOGGLE HABIT
+   In production: POST /api/v1/habits/:id/complete
+   or DELETE /api/v1/habits/:id/complete (undo)
+═══════════════════════════════════════════════════════════════ */
+function toggleHabit(id) {
+    const habit = habits.find(h => h.id === id);
+    if (!habit) return;
+
+    habit.done = !habit.done;
+
+    const card = document.getElementById(`habit-${id}`);
+    if (!card) return;
+
+    if (habit.done) {
+        card.classList.add('done');
+        // Animate the checkbox
+        const check = card.querySelector('.hcheck');
+        check.classList.remove('check-bounce');
+        void check.offsetWidth; // force reflow to re-trigger animation
+        check.classList.add('check-bounce');
+        // Burst particles from the checkbox location
+        spawnParticles(check, clusterColors[habit.cluster]);
+    } else {
+        card.classList.remove('done');
+    }
+
+    updateProgress();
+    updateClusterBadge(habit.cluster);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTION — TOGGLE MILESTONE
+   In production: PATCH /api/v1/milestones/:id { completed: bool }
+═══════════════════════════════════════════════════════════════ */
+function toggleMilestone(goalId, index) {
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+
+    goal.milestones[index].done = !goal.milestones[index].done;
+    // Re-render the goals screen to reflect the change
+    renderGoals();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTION — COLLAPSE / EXPAND CLUSTER
+═══════════════════════════════════════════════════════════════ */
+function toggleCluster(clusterId) {
+    const section = document.getElementById(`cs-${clusterId}`);
+    if (section) section.classList.toggle('collapsed');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTION — TAB NAVIGATION
+═══════════════════════════════════════════════════════════════ */
+function switchTab(tab) {
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    // Deactivate all nav buttons
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+    document.getElementById(`s-${tab}`).classList.add('active');
+    document.getElementById(`nav-${tab}`).classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTION — HONEST HOUR SHEET
+═══════════════════════════════════════════════════════════════ */
+function openSheet() {
+    document.getElementById('sheet-backdrop').classList.add('open');
+    document.getElementById('honest-sheet').classList.add('open');
+}
+
+function closeSheet() {
+    document.getElementById('sheet-backdrop').classList.remove('open');
+    document.getElementById('honest-sheet').classList.remove('open');
+}
+
+function saveReflection() {
+    // In production: POST /api/v1/reflections with the form values
+    closeSheet();
+    // Brief success confirmation
+    const btn = document.querySelector('.honest-btn');
+    if (btn) {
+        btn.textContent = 'Reflection saved ✓';
+        btn.style.background = 'rgba(74,222,128,0.15)';
+        btn.style.color = 'var(--fin)';
+        btn.style.border = '1px solid rgba(74,222,128,0.3)';
+        setTimeout(() => {
+            btn.textContent = 'Start this week\'s reflection →';
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.style.border = '';
+        }, 3000);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATION — PARTICLE BURST
+   Spawns 8 dots that scatter outward from the checkbox position.
+   Uses the Web Animations API for precise timing + auto-cleanup.
+═══════════════════════════════════════════════════════════════ */
+function spawnParticles(el, color) {
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width  / 2;
+    const cy = rect.top  + rect.height / 2;
+    const count = 8;
+
+    for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.cssText = `left:${cx - 2.5}px; top:${cy - 2.5}px; background:${color};`;
+        document.body.appendChild(p);
+
+        const angle  = (i / count) * 2 * Math.PI - Math.PI / 2;
+        const radius = 16 + Math.random() * 12;
+        const tx = Math.cos(angle) * radius;
+        const ty = Math.sin(angle) * radius;
+
+        p.animate(
+            [
+                { transform: 'translate(0, 0)   scale(1)', opacity: 1 },
+                { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 },
+            ],
+            { duration: 480, easing: 'cubic-bezier(0, 0, 0.2, 1)', fill: 'forwards' }
+        ).finished.then(() => p.remove());
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UI UPDATE — PROGRESS BAR + CLUSTER BADGE
+═══════════════════════════════════════════════════════════════ */
+function updateProgress() {
+    const total = habits.length;
+    const done  = habits.filter(h => h.done).length;
+    const pct   = (done / total) * 100;
+
+    document.getElementById('prog-fill').style.width  = pct + '%';
+    document.getElementById('prog-count').textContent = `${done} / ${total} done`;
+}
+
+function updateClusterBadge(clusterId) {
+    const clusterHabits = habits.filter(h => h.cluster === clusterId);
+    const done  = clusterHabits.filter(h => h.done).length;
+    const total = clusterHabits.length;
+    const badge = document.querySelector(`#cs-${clusterId} .cluster-badge`);
+    if (badge) badge.textContent = `${done}/${total}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT — run on page load
+═══════════════════════════════════════════════════════════════ */
+renderToday();
+renderGoals();
+renderStats();
+updateProgress();
+</script>
+
+</body>
+</html>
