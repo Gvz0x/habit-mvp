@@ -226,6 +226,139 @@
         .ms-label.done    { text-decoration: line-through; opacity: 0.5; }
         .ms-label.current { color: var(--text); font-weight: 700; }
 
+        /* ── CHAT BUTTON ────────────────────────────────────── */
+        .chat-fab {
+            position: fixed; bottom: 100px; right: 16px;
+            width: 52px; height: 52px; border-radius: 50%; border: none;
+            background: linear-gradient(135deg, var(--blue), var(--orange));
+            color: white; font-size: 22px; cursor: pointer;
+            box-shadow: 0 4px 20px rgba(96,165,250,0.35);
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.15s, opacity 0.15s;
+            z-index: 30;
+        }
+        .chat-fab:hover  { transform: scale(1.08); }
+        .chat-fab:active { transform: scale(0.95); }
+
+        /* ── CHAT SHEET ──────────────────────────────────────── */
+        .chat-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s; z-index: 40;
+        }
+        .chat-backdrop.open { opacity: 1; pointer-events: all; }
+
+        .chat-sheet {
+            position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%);
+            width: 100%; max-width: 480px;
+            background: var(--surface);
+            border-radius: 24px 24px 0 0;
+            border-top: 1px solid rgba(255,255,255,0.12);
+            display: flex; flex-direction: column;
+            height: 72vh;
+            transition: transform 0.38s cubic-bezier(0.32,0.72,0,1);
+            z-index: 41;
+        }
+        .chat-sheet.open { transform: translateX(-50%) translateY(0); }
+
+        .chat-header {
+            flex-shrink: 0; padding: 12px 20px 14px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+        .chat-handle {
+            width: 36px; height: 4px; border-radius: 2px;
+            background: rgba(255,255,255,0.15);
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+        }
+        .chat-title { font-size: 14px; font-weight: 800; margin-top: 8px; }
+        .chat-close {
+            background: none; border: none; color: var(--muted);
+            font-size: 20px; cursor: pointer; line-height: 1;
+            margin-top: 8px; padding: 4px;
+        }
+        .chat-close:hover { color: var(--text); }
+
+        /* Messages */
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 16px 16px 8px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .chat-messages::-webkit-scrollbar { display: none; }
+
+        .msg {
+            max-width: 82%; display: flex; flex-direction: column; gap: 3px;
+        }
+        .msg.ai   { align-self: flex-start; }
+        .msg.user { align-self: flex-end; }
+
+        .msg-bubble {
+            padding: 10px 13px; border-radius: 16px;
+            font-size: 13px; line-height: 1.5;
+        }
+        .msg.ai   .msg-bubble {
+            background: rgba(255,255,255,0.07);
+            border-bottom-left-radius: 4px;
+            color: var(--text);
+        }
+        .msg.user .msg-bubble {
+            background: linear-gradient(135deg, rgba(96,165,250,0.3), rgba(251,146,60,0.2));
+            border: 1px solid rgba(96,165,250,0.2);
+            border-bottom-right-radius: 4px;
+            color: var(--text);
+        }
+
+        /* Typing indicator */
+        .typing-dots {
+            display: flex; gap: 4px; padding: 12px 13px;
+            background: rgba(255,255,255,0.07); border-radius: 16px;
+            border-bottom-left-radius: 4px; width: fit-content;
+        }
+        .typing-dots span {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--muted);
+            animation: dot-bounce 1.2s ease-in-out infinite;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes dot-bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30%            { transform: translateY(-6px); }
+        }
+
+        /* Generating habit plan banner */
+        .generating-banner {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2);
+            border-radius: 10px; padding: 10px 13px;
+            font-size: 12px; color: var(--blue); font-weight: 600;
+        }
+
+        /* Chat input row */
+        .chat-input-row {
+            flex-shrink: 0; display: flex; gap: 8px;
+            padding: 10px 14px 28px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+        }
+        .chat-input {
+            flex: 1; background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 10px 14px;
+            color: var(--text); font-size: 13px; outline: none;
+            transition: border-color 0.15s; resize: none; height: 42px;
+        }
+        .chat-input::placeholder { color: var(--muted); }
+        .chat-input:focus { border-color: rgba(96,165,250,0.4); }
+        .chat-send {
+            width: 42px; height: 42px; border-radius: 12px; border: none;
+            background: linear-gradient(135deg, var(--blue), var(--orange));
+            color: white; font-size: 16px; cursor: pointer; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.15s;
+        }
+        .chat-send:disabled { opacity: 0.35; cursor: not-allowed; }
+
         /* ── ADD GOAL FOOTER ────────────────────────────────── */
         .add-footer {
             flex-shrink: 0;
@@ -310,6 +443,31 @@
     <main class="habits-body" id="habits-body">
         <!-- Rendered by JS -->
     </main>
+
+    <!-- ── CHAT FAB ── -->
+    <button class="chat-fab" onclick="openChat()" title="Chat with your coach">💬</button>
+
+    <!-- ── CHAT SHEET ── -->
+    <div class="chat-backdrop" id="chat-backdrop" onclick="closeChat()"></div>
+    <div class="chat-sheet" id="chat-sheet">
+        <div class="chat-handle"></div>
+        <div class="chat-header">
+            <span class="chat-title">Chat with your coach</span>
+            <button class="chat-close" onclick="closeChat()">×</button>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-row">
+            <input
+                type="text"
+                id="chat-input"
+                class="chat-input"
+                placeholder="Ask about your goals..."
+                autocomplete="off"
+                onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChat(); }"
+            />
+            <button class="chat-send" id="chat-send" onclick="sendChat()">→</button>
+        </div>
+    </div>
 
     <!-- ── ADD GOAL FOOTER ── -->
     <footer class="add-footer">
@@ -709,6 +867,173 @@ function showError(msg) {
 function clearError() {
     const el = document.getElementById('error-banner');
     el.style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHAT
+   Maintains conversation history in memory for the session.
+   When Claude signals a goal is ready via goal_to_generate,
+   we call /api/goals automatically and render the new cluster.
+═══════════════════════════════════════════════════════════════ */
+let chatHistory = [];   // [{role, content}] — sent to /api/chat each turn
+let chatOpen    = false;
+
+function openChat() {
+    chatOpen = true;
+    document.getElementById('chat-backdrop').classList.add('open');
+    document.getElementById('chat-sheet').classList.add('open');
+
+    // Show welcome message on first open
+    if (chatHistory.length === 0) {
+        appendMsg('ai', "What goal do you want to work toward? Tell me as much or as little as you'd like and I'll help you shape it into a plan.");
+    }
+
+    setTimeout(() => document.getElementById('chat-input').focus(), 400);
+}
+
+function closeChat() {
+    chatOpen = false;
+    document.getElementById('chat-backdrop').classList.remove('open');
+    document.getElementById('chat-sheet').classList.remove('open');
+}
+
+async function sendChat() {
+    const input   = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message) return;
+
+    input.value = '';
+    appendMsg('user', message);
+
+    // Add to history before sending so Claude has the context
+    chatHistory.push({ role: 'user', content: message });
+
+    showTyping();
+    setSendDisabled(true);
+
+    try {
+        const res  = await fetch('/api/chat', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ message, history: chatHistory.slice(0, -1) }),
+        });
+        const data = await res.json();
+
+        hideTyping();
+
+        if (data.error) {
+            appendMsg('ai', `Error: ${data.error}`);
+            chatHistory.pop(); // remove the failed user message
+            return;
+        }
+
+        // Add Claude's reply to history
+        chatHistory.push({ role: 'assistant', content: data.reply });
+        appendMsg('ai', data.reply);
+
+        // If Claude decided the goal is ready, generate the habit plan
+        if (data.goal_to_generate) {
+            await generateFromChat(data.goal_to_generate);
+        }
+
+    } catch (e) {
+        hideTyping();
+        appendMsg('ai', 'Connection error — is the server running?');
+        chatHistory.pop();
+    } finally {
+        setSendDisabled(false);
+        input.focus();
+    }
+}
+
+async function generateFromChat(goalText) {
+    // Show a banner in the chat while we generate
+    const bannerId = 'gen-banner-' + Date.now();
+    appendBanner(bannerId, `Building your habit plan for: "${goalText}"...`);
+
+    try {
+        const res  = await fetch('/api/goals', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ text: goalText }),
+        });
+        const goal = await res.json();
+
+        if (!res.ok) {
+            updateBanner(bannerId, `Couldn't generate plan: ${goal.error}`);
+            return;
+        }
+
+        // Add to local state and render in the main UI
+        appState.goals.push(goal);
+
+        const body    = document.getElementById('habits-body');
+        const empty   = body.querySelector('.empty-state');
+        if (empty) empty.remove();
+
+        const clusterEl = buildClusterEl(goal);
+        body.appendChild(clusterEl);
+        updateProgress();
+
+        updateBanner(bannerId, `✓ Habit plan created — check it out below!`);
+
+        // Close chat after a beat so they can see it
+        setTimeout(closeChat, 1800);
+
+    } catch (e) {
+        updateBanner(bannerId, 'Plan generation failed — try again.');
+    }
+}
+
+/* ── Chat DOM helpers ── */
+function appendMsg(role, text) {
+    const wrap   = document.getElementById('chat-messages');
+    const msg    = document.createElement('div');
+    msg.className = `msg ${role}`;
+    msg.innerHTML = `<div class="msg-bubble">${escapeHtml(text)}</div>`;
+    wrap.appendChild(msg);
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+function showTyping() {
+    const wrap = document.getElementById('chat-messages');
+    const el   = document.createElement('div');
+    el.className = 'msg ai'; el.id = 'typing-indicator';
+    el.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    wrap.appendChild(el);
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+function hideTyping() {
+    document.getElementById('typing-indicator')?.remove();
+}
+
+function appendBanner(id, text) {
+    const wrap = document.getElementById('chat-messages');
+    const el   = document.createElement('div');
+    el.id        = id;
+    el.className = 'generating-banner';
+    el.innerHTML = `<div class="spinner" style="flex-shrink:0"></div><span>${escapeHtml(text)}</span>`;
+    wrap.appendChild(el);
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+function updateBanner(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = `<span>${escapeHtml(text)}</span>`;
+    el.style.background = 'rgba(74,222,128,0.1)';
+    el.style.borderColor = 'rgba(74,222,128,0.25)';
+    el.style.color = 'var(--green)';
+}
+
+function setSendDisabled(disabled) {
+    document.getElementById('chat-send').disabled  = disabled;
+    document.getElementById('chat-input').disabled = disabled;
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 }
 
 /* ── START ── */

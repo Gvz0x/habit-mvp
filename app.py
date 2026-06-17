@@ -267,6 +267,72 @@ def toggle_milestone(milestone_id):
     return jsonify({'error': 'Milestone not found'}), 404
 
 
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    """
+    POST /api/chat  { "message": "...", "history": [{role, content}] }
+    Conversational interface — Claude asks clarifying questions and,
+    when the goal is specific enough, triggers habit plan generation.
+
+    Uses a <generate_goal> tag to signal the frontend to call /api/goals.
+    Keeping the signal in-band avoids a second round-trip for the common case.
+    """
+    if not client:
+        return jsonify({'error': 'ANTHROPIC_API_KEY not set'}), 503
+
+    body         = request.json or {}
+    user_message = body.get('message', '').strip()
+    history      = body.get('history', [])   # [{role, content}] from frontend
+
+    if not user_message:
+        return jsonify({'error': 'Message is required'}), 400
+
+    data          = load_data()
+    current_goals = [g['text'] for g in data['goals']] or ['none yet']
+
+    system = f"""\
+You are a habit coach having a conversation to help the user define and achieve their life goals.
+
+The user's current active goals: {', '.join(current_goals)}
+
+Your job:
+1. Ask clarifying questions to make vague goals specific and measurable.
+2. Help the user think through what success looks like.
+3. Once a goal is clear and specific, generate a habit plan for it.
+
+To trigger habit plan generation, end your message with:
+<generate_goal>the specific, refined goal text</generate_goal>
+
+Only use <generate_goal> when the goal is concrete enough to act on.
+Keep responses short — 2–4 sentences max. Be direct, not motivational-poster-y.\
+"""
+
+    # Append the new user message to the history sent from the client
+    messages = history + [{'role': 'user', 'content': user_message}]
+
+    try:
+        response   = client.messages.create(
+            model      = 'claude-haiku-4-5-20251001',
+            max_tokens = 512,
+            system     = system,
+            messages   = messages,
+        )
+        reply_raw = response.content[0].text
+
+        # Extract <generate_goal> tag if present, then strip it from the reply
+        goal_match       = re.search(r'<generate_goal>(.*?)</generate_goal>', reply_raw, re.DOTALL)
+        goal_to_generate = goal_match.group(1).strip() if goal_match else None
+        clean_reply      = re.sub(r'<generate_goal>.*?</generate_goal>', '', reply_raw, flags=re.DOTALL).strip()
+
+        return jsonify({
+            'reply':             clean_reply,
+            'goal_to_generate':  goal_to_generate,   # non-null = frontend should call /api/goals
+        })
+
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
 @app.route('/api/reset', methods=['DELETE'])
 def reset():
     """Wipe everything. Dev only — remove this route in production."""
