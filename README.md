@@ -1,33 +1,38 @@
 # Habit System MVP
 
-An AI-powered habit tracking app that takes your life goals and designs the daily habits to get you there.
+An AI-powered habit tracking app. Tell it a goal, it designs the habits to get you there.
 
-You type a goal. Claude generates a habit plan. You check off habits daily.
+You can chat with Claude to refine your goal, or type it directly. It generates a habit plan, you check off habits daily.
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.1-lightgrey)
 ![Anthropic](https://img.shields.io/badge/Claude-Haiku-orange)
 
+**Live demo:** https://habit-mvp-production.up.railway.app
+
 ---
 
 ## How It Works
 
-1. Enter a life goal (e.g. "Become a black belt in BJJ")
-2. Claude Haiku analyses the goal and generates 3–5 high-ROI habits
-3. Habits appear grouped under a goal cluster
-4. Check off habits daily — progress bar and streak update live
+1. Open the app and tap 💬 to chat with Claude about your goal
+2. Claude asks clarifying questions until the goal is specific enough
+3. It generates 3–5 daily habits with ROI scores
+4. Check off habits each day — progress bar and streak update live
 5. Tap milestones to track longer-arc progress
+
+You can also skip the chat and type a goal directly into the input at the bottom.
 
 ---
 
 ## Stack
 
-| Layer | Tech | Notes |
-|---|---|---|
-| Backend | Python + Flask | REST API, file-based storage |
-| AI | Claude Haiku (`claude-haiku-4-5`) | Goal → habit generation |
-| Frontend | Vanilla HTML/CSS/JS | No framework, single file |
-| Storage | JSON file | Swap for PostgreSQL in production |
+| Layer | Tech |
+|---|---|
+| Backend | Python + Flask |
+| AI | Claude Haiku (`claude-haiku-4-5`) |
+| Frontend | Vanilla HTML/CSS/JS |
+| Storage | JSON file |
+| Hosting | Railway |
 
 ---
 
@@ -37,9 +42,10 @@ You type a goal. Claude generates a habit plan. You check off habits daily.
 habit-mvp/
 ├── app.py              # Flask server + API routes + Claude integration
 ├── static/
-│   └── index.html      # Full frontend — UI, state, animations
-├── data.json           # Auto-created on first run (git-ignored)
-├── .env                # API key (git-ignored)
+│   └── index.html      # Frontend — UI, state, animations
+├── requirements.txt    # Python dependencies
+├── demo/
+│   └── index.html      # Static mockup (Netlify)
 ├── forge-mockup.html   # Design mockup v1
 └── forge-mockup-v2.html # Design mockup v2 (mobile-first, interactive)
 ```
@@ -52,16 +58,17 @@ habit-mvp/
 |---|---|---|
 | `GET` | `/api/state` | All goals + today's habit completion state + streak |
 | `POST` | `/api/goals` | Add a goal — calls Claude, returns generated habit plan |
+| `POST` | `/api/chat` | Conversational goal refinement with Claude |
 | `POST` | `/api/habits/:id/toggle` | Toggle today's completion for a habit |
 | `POST` | `/api/milestones/:id/toggle` | Toggle a milestone done/undone |
-| `DELETE` | `/api/reset` | Wipe all data (dev only) |
+| `DELETE` | `/api/reset` | Wipe all data |
 
 ---
 
 ## Data Models
 
 ```json
-// Goal (stored in data.json)
+// Goal
 {
   "id": "uuid",
   "text": "Become a black belt in BJJ",
@@ -85,28 +92,21 @@ habit-mvp/
   }
 }
 
-// Habit log entry
+// Habit log
 { "habit_id": "uuid", "date": "2026-06-17", "completed": true }
 ```
 
 ---
 
-## Getting Started
-
-### Prerequisites
-
-- Python 3.11+
-- An [Anthropic API key](https://console.anthropic.com)
-
-### Setup
+## Running Locally
 
 ```bash
-# Clone the repo
+# Clone
 git clone https://github.com/Gvz0x/habit-mvp.git
 cd habit-mvp
 
 # Install dependencies
-pip install flask anthropic python-dotenv
+pip install -r requirements.txt
 
 # Add your API key
 echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
@@ -115,42 +115,4 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 python3 app.py
 ```
 
-Open `http://localhost:3000` in your browser.
-
----
-
-## Roadmap
-
-This is an MVP. The production version would include:
-
-- [ ] User authentication (Supabase Auth)
-- [ ] PostgreSQL database (replacing JSON file)
-- [ ] Redis caching for streaks and daily habit state
-- [ ] Weekly Honest Hour — AI-powered weekly reflection and habit adjustment
-- [ ] Mobile app (React Native)
-- [ ] BigQuery analytics pipeline via dbt + Looker Studio
-
----
-
-## Architecture Notes (Production)
-
-```
-Mobile (React Native)  ←→  FastAPI backend  ←→  PostgreSQL + Redis
-                                ↓
-                         Claude Haiku API
-                                ↓
-                    BigQuery (nightly export via dbt)
-                                ↓
-                         Looker Studio dashboard
-```
-
-AI fires **infrequently** — only on goal creation and weekly review. Daily habit interactions are pure database reads/writes, keeping costs minimal (~$0.0003/user/week).
-
----
-
-## Cost Estimate
-
-| Scale | AI cost | Infra cost | Per-user/year |
-|---|---|---|---|
-| 1,000 users | ~$2,600/yr | ~$540/yr | ~$3.14 |
-| 10,000 users | ~$26,000/yr | ~$3,000/yr | ~$2.90 |
+Open `http://localhost:3000`.
