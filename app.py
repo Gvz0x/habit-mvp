@@ -342,5 +342,7 @@ def reset():
 
 # ── START ──────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    print('\n✓  Habit MVP running → http://localhost:3000\n')
-    app.run(port=3000, debug=True, use_reloader=False)
+    # Railway injects PORT automatically — fall back to 3000 for local dev
+    port = int(os.environ.get('PORT', 3000))
+    print(f'\n✓  Habit MVP running → http://localhost:{port}\n')
+    app.run(host='0.0.0.0', port=port, debug=False)
