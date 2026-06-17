@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit System</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+        /* ── TOKENS ─────────────────────────────────────────── */
+        :root {
+            --bg:      #080B10;
+            --surface: #0D1117;
+            --card:    rgba(255,255,255,0.04);
+            --card-h:  rgba(255,255,255,0.07);
+            --border:  rgba(255,255,255,0.08);
+
+            /* Cluster palette — must match app.py color values */
+            --orange: #FB923C; --orange-dim: rgba(251,146,60,0.13);
+            --green:  #4ADE80; --green-dim:  rgba(74,222,128,0.13);
+            --blue:   #60A5FA; --blue-dim:   rgba(96,165,250,0.13);
+            --red:    #F87171; --red-dim:    rgba(248,113,113,0.13);
+            --purple: #A78BFA; --purple-dim: rgba(167,139,250,0.13);
+
+            --text:   #E8EEF7;
+            --muted:  #6B7A8D;
+            --subtle: #1E2A38;
+        }
+
+        /* ── RESET ──────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        button, input, textarea { font-family: inherit; }
+
+        /* ── LAYOUT ─────────────────────────────────────────── */
+        body {
+            background:
+                radial-gradient(ellipse at 15% 15%, rgba(96,165,250,0.08) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 85%, rgba(251,146,60,0.06) 0%, transparent 55%),
+                var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        /* ── HEADER ─────────────────────────────────────────── */
+        .app-header {
+            flex-shrink: 0;
+            padding: 48px 20px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-left {}
+        .header-date  { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+        .header-title { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
+        .header-title span {
+            background: linear-gradient(135deg, var(--orange), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .streak-pill {
+            display: flex; align-items: center; gap: 5px;
+            background: rgba(255,160,50,0.1);
+            border: 1px solid rgba(255,160,50,0.2);
+            border-radius: 30px; padding: 6px 12px;
+            font-size: 13px; font-weight: 800; color: #FFA032;
+        }
+
+        /* ── PROGRESS BAR ───────────────────────────────────── */
+        .progress-wrap { flex-shrink: 0; padding: 0 20px 20px; }
+        .progress-row  {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 7px;
+        }
+        .progress-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                          letter-spacing: 0.8px; color: var(--muted); }
+        .progress-count { font-size: 11px; font-weight: 800; color: var(--text); }
+        .ptrack {
+            height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;
+        }
+        .pfill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--blue), var(--orange));
+            transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            width: 0%;
+        }
+
+        /* ── SCROLL BODY ────────────────────────────────────── */
+        .habits-body {
+            flex: 1; overflow-y: auto; padding: 0 16px 8px;
+        }
+        .habits-body::-webkit-scrollbar { display: none; }
+
+        /* ── EMPTY STATE ────────────────────────────────────── */
+        .empty-state {
+            text-align: center; padding: 60px 24px 32px;
+        }
+        .empty-icon {
+            font-size: 40px; margin-bottom: 16px; opacity: 0.5;
+        }
+        .empty-heading {
+            font-size: 18px; font-weight: 800; letter-spacing: -0.4px; margin-bottom: 8px;
+        }
+        .empty-sub {
+            font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 24px;
+        }
+        .example-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .example-chip {
+            font-size: 12px; font-weight: 600; padding: 6px 13px;
+            border-radius: 20px; background: var(--card);
+            border: 1px solid var(--border); color: var(--muted);
+            cursor: pointer; transition: all 0.15s;
+        }
+        .example-chip:hover { background: var(--card-h); color: var(--text); }
+
+        /* ── CLUSTER SECTION ────────────────────────────────── */
+        /*
+         * data-color drives --cc (cluster color) used by all children.
+         * This avoids per-element color overrides.
+         */
+        .cluster { margin-bottom: 20px; }
+        .cluster[data-color="orange"] { --cc: var(--orange); --cc-dim: var(--orange-dim); }
+        .cluster[data-color="green"]  { --cc: var(--green);  --cc-dim: var(--green-dim);  }
+        .cluster[data-color="blue"]   { --cc: var(--blue);   --cc-dim: var(--blue-dim);   }
+        .cluster[data-color="red"]    { --cc: var(--red);    --cc-dim: var(--red-dim);    }
+        .cluster[data-color="purple"] { --cc: var(--purple); --cc-dim: var(--purple-dim); }
+
+        .cluster-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 4px; margin-bottom: 8px;
+            cursor: pointer; user-select: none;
+        }
+        .cluster-left   { display: flex; align-items: center; gap: 8px; }
+        .cluster-icon   {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: var(--cc-dim);
+            display: flex; align-items: center; justify-content: center; font-size: 14px;
+        }
+        .cluster-name   { font-size: 12px; font-weight: 800; text-transform: uppercase;
+                          letter-spacing: 0.7px; color: var(--cc); }
+        .cluster-badge  {
+            font-size: 10px; font-weight: 700; color: var(--muted);
+            background: rgba(255,255,255,0.06); border-radius: 10px; padding: 2px 7px;
+        }
+        .cluster-habits { display: flex; flex-direction: column; gap: 7px; }
+        .cluster.collapsed .cluster-habits { display: none; }
+
+        /* ── HABIT CARD ─────────────────────────────────────── */
+        /*
+         * Left border = cluster color for instant visual grouping.
+         * Min tap target = 60px (Apple HIG: 44px minimum).
+         */
+        .habit-card {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--card); border: 1px solid var(--border);
+            border-left: 3px solid var(--cc);
+            border-radius: 12px; padding: 13px 14px 13px 12px;
+            cursor: pointer; user-select: none; min-height: 60px;
+            transition: background 0.12s, opacity 0.3s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .habit-card:active { background: var(--card-h); }
+        .habit-card.done   { opacity: 0.4; }
+        .habit-card.done .habit-name { text-decoration: line-through; }
+
+        /* Checkbox — pure CSS, no SVG needed for MVP */
+        .habit-check {
+            width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+            border: 2px solid var(--cc);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: transparent;
+            transition: background 0.18s, color 0.18s;
+        }
+        .habit-card.done .habit-check {
+            background: var(--cc); color: white;
+        }
+
+        /* Pulse animation on check */
+        @keyframes check-pulse {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.35); }
+            100% { transform: scale(1); }
+        }
+        .pulse { animation: check-pulse 0.22s ease; }
+
+        .habit-info  { flex: 1; min-width: 0; }
+        .habit-name  { font-size: 13px; font-weight: 600; line-height: 1.3; }
+        .habit-meta  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .habit-roi   { font-size: 9px; color: #FFA032; flex-shrink: 0; letter-spacing: 0.5px; }
+
+        /* ── PLAN SUMMARY ───────────────────────────────────── */
+        .plan-summary {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 14px; margin-top: 8px;
+        }
+        .ps-row { font-size: 11px; color: var(--muted); margin-bottom: 6px; line-height: 1.5; }
+        .ps-row:last-child { margin-bottom: 0; }
+        .ps-label { font-weight: 700; color: var(--cc); }
+
+        /* ── MILESTONES ─────────────────────────────────────── */
+        .milestones-toggle {
+            font-size: 11px; color: var(--muted); padding: 6px 4px;
+            cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;
+        }
+        .milestones-toggle:hover { color: var(--text); }
+        .ms-list { margin-top: 4px; }
+        .ms-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 6px 4px; cursor: pointer;
+        }
+        .ms-dot {
+            width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
+            border: 2px solid var(--subtle); background: transparent;
+            margin-top: 2px; transition: all 0.18s;
+        }
+        .ms-dot.done    { background: var(--cc); border-color: var(--cc); }
+        .ms-dot.current { border-color: var(--cc); }
+        .ms-label {
+            font-size: 12px; color: var(--muted); font-weight: 500; line-height: 1.4;
+            transition: color 0.18s;
+        }
+        .ms-label.done    { text-decoration: line-through; opacity: 0.5; }
+        .ms-label.current { color: var(--text); font-weight: 700; }
+
+        /* ── ADD GOAL FOOTER ────────────────────────────────── */
+        .add-footer {
+            flex-shrink: 0;
+            padding: 12px 16px 32px;
+            background: rgba(8,11,16,0.95);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border);
+        }
+        .add-form { display: flex; gap: 8px; }
+        .goal-input {
+            flex: 1; background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 12px 14px;
+            color: var(--text); font-size: 13px; outline: none;
+            transition: border-color 0.15s;
+        }
+        .goal-input::placeholder { color: var(--muted); }
+        .goal-input:focus { border-color: rgba(96,165,250,0.4); }
+
+        .add-btn {
+            width: 44px; height: 44px; border-radius: 12px; border: none;
+            background: linear-gradient(135deg, var(--blue), var(--orange));
+            color: white; font-size: 18px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.15s; flex-shrink: 0;
+        }
+        .add-btn:hover   { opacity: 0.85; }
+        .add-btn:active  { opacity: 0.7; }
+        .add-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        /* Generating state */
+        .generating-state {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 4px; font-size: 13px; color: var(--muted);
+        }
+        .spinner {
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 2px solid rgba(96,165,250,0.2);
+            border-top-color: var(--blue);
+            animation: spin 0.7s linear infinite; flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error banner */
+        .error-banner {
+            background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25);
+            border-radius: 10px; padding: 10px 14px; margin: 0 0 12px;
+            font-size: 12px; color: var(--red); display: none;
+        }
+
+        /* Particle (JS-created, cleaned up after animation) */
+        .particle { position: fixed; border-radius: 50%; pointer-events: none; z-index: 9999; }
+
+        /* Reset button — dev helper, subtle */
+        .reset-btn {
+            display: block; margin: 8px auto 0; font-size: 10px; color: var(--subtle);
+            background: none; border: none; cursor: pointer;
+        }
+        .reset-btn:hover { color: var(--muted); }
+    </style>
+</head>
+<body>
+
+    <!-- ── HEADER ── -->
+    <header class="app-header">
+        <div class="header-left">
+            <div class="header-date" id="header-date"></div>
+            <div class="header-title">Your <span>Habit System</span></div>
+        </div>
+        <div class="streak-pill">🔥 <span id="streak-num">0</span></div>
+    </header>
+
+    <!-- ── PROGRESS BAR ── -->
+    <div class="progress-wrap">
+        <div class="progress-row">
+            <span class="progress-label">Today's Progress</span>
+            <span class="progress-count" id="prog-count">0 / 0 done</span>
+        </div>
+        <div class="ptrack"><div class="pfill" id="pfill"></div></div>
+    </div>
+
+    <!-- ── HABIT CLUSTERS (scrollable) ── -->
+    <main class="habits-body" id="habits-body">
+        <!-- Rendered by JS -->
+    </main>
+
+    <!-- ── ADD GOAL FOOTER ── -->
+    <footer class="add-footer">
+        <div class="error-banner" id="error-banner"></div>
+
+        <div class="add-form" id="add-form">
+            <input
+                type="text"
+                id="goal-input"
+                class="goal-input"
+                placeholder="Enter a goal to generate habits..."
+                autocomplete="off"
+                onkeydown="if(event.key==='Enter') addGoal()"
+            />
+            <button class="add-btn" id="add-btn" onclick="addGoal()" title="Generate habits">
+                →
+            </button>
+        </div>
+
+        <div class="generating-state" id="gen-state" style="display:none">
+            <div class="spinner"></div>
+            <span>Building your habit system with AI...</span>
+        </div>
+
+        <button class="reset-btn" onclick="resetAll()">reset all data</button>
+    </footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+   Single in-memory object — the API is the source of truth.
+   We keep a local copy only for progress bar calculations.
+═══════════════════════════════════════════════════════════════ */
+let appState = { goals: [], streak: 0, today: '' };
+
+const clusterColors = {
+    orange: '#FB923C', green: '#4ADE80', blue: '#60A5FA',
+    red: '#F87171',    purple: '#A78BFA',
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+async function init() {
+    setHeaderDate();
+    await loadState();
+}
+
+function setHeaderDate() {
+    const d = new Date();
+    document.getElementById('header-date').textContent =
+        d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOAD STATE — GET /api/state
+═══════════════════════════════════════════════════════════════ */
+async function loadState() {
+    try {
+        const res  = await fetch('/api/state');
+        appState   = await res.json();
+        renderAll();
+    } catch (e) {
+        showError('Could not connect to server. Is app.py running?');
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════════════ */
+function renderAll() {
+    const body = document.getElementById('habits-body');
+    body.innerHTML = '';
+
+    document.getElementById('streak-num').textContent = appState.streak;
+
+    if (!appState.goals.length) {
+        body.appendChild(buildEmptyState());
+        updateProgress();
+        return;
+    }
+
+    appState.goals.forEach(goal => {
+        body.appendChild(buildClusterEl(goal));
+    });
+
+    updateProgress();
+}
+
+function buildEmptyState() {
+    const div = document.createElement('div');
+    div.className = 'empty-state';
+    div.innerHTML = `
+        <div class="empty-icon">✦</div>
+        <div class="empty-heading">Your habit system starts here</div>
+        <div class="empty-sub">
+            Type a life goal below and AI will design the daily habits<br>
+            that make it inevitable.
+        </div>
+        <div class="example-chips">
+            <span class="example-chip" onclick="fillGoal('Reach 70KG')">Reach 70KG</span>
+            <span class="example-chip" onclick="fillGoal('Learn BJJ')">Learn BJJ</span>
+            <span class="example-chip" onclick="fillGoal('Save money to move out')">Save to move out</span>
+            <span class="example-chip" onclick="fillGoal('Build a data consultancy')">Build a consultancy</span>
+        </div>
+    `;
+    return div;
+}
+
+function buildClusterEl(goal) {
+    const color     = goal.cluster.color;
+    const doneCount = goal.habits.filter(h => h.done).length;
+
+    const section = document.createElement('div');
+    section.className = 'cluster';
+    section.dataset.color     = color;
+    section.dataset.goalId    = goal.id;
+
+    section.innerHTML = `
+        <div class="cluster-header" onclick="toggleCluster(this.closest('.cluster'))">
+            <div class="cluster-left">
+                <div class="cluster-icon">${goal.cluster.icon}</div>
+                <span class="cluster-name">${goal.cluster.name}</span>
+            </div>
+            <span class="cluster-badge" id="badge-${goal.id}">${doneCount}/${goal.habits.length}</span>
+        </div>
+
+        <div class="cluster-habits" id="habits-${goal.id}">
+            ${goal.habits.map(h => habitCardHTML(h)).join('')}
+        </div>
+
+        ${buildMilestonesHTML(goal)}
+        ${buildPlanSummaryHTML(goal)}
+    `;
+
+    return section;
+}
+
+function habitCardHTML(h) {
+    const stars = '★'.repeat(h.roi_score) + '☆'.repeat(5 - h.roi_score);
+    return `
+        <div class="habit-card${h.done ? ' done' : ''}"
+             id="hcard-${h.id}"
+             onclick="toggleHabit('${h.id}', this)">
+            <div class="habit-check" id="hcheck-${h.id}">✓</div>
+            <div class="habit-info">
+                <div class="habit-name">${h.name}</div>
+                <div class="habit-meta">${h.meta_label} · ${h.frequency}</div>
+            </div>
+            <div class="habit-roi">${stars}</div>
+        </div>
+    `;
+}
+
+function buildMilestonesHTML(goal) {
+    if (!goal.milestones?.length) return '';
+    const currentIdx = goal.milestones.findIndex(m => !m.done);
+
+    const items = goal.milestones.map((m, i) => {
+        const cls = m.done ? 'done' : i === currentIdx ? 'current' : '';
+        return `
+            <div class="ms-item" onclick="toggleMilestone('${m.id}', this)">
+                <div class="ms-dot ${cls}"></div>
+                <div class="ms-label ${cls}">${m.label}</div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="milestones-toggle" onclick="this.nextElementSibling.style.display =
+            this.nextElementSibling.style.display === 'none' ? '' : 'none'">
+            ↓ milestones
+        </div>
+        <div class="ms-list" style="display:none">${items}</div>
+    `;
+}
+
+function buildPlanSummaryHTML(goal) {
+    const ps = goal.plan_summary;
+    if (!ps?.estimated_timeframe) return '';
+    return `
+        <div class="plan-summary">
+            <div class="ps-row"><span class="ps-label">Timeframe · </span>${ps.estimated_timeframe}</div>
+            <div class="ps-row"><span class="ps-label">Biggest risk · </span>${ps.biggest_risk}</div>
+            <div class="ps-row"><span class="ps-label">Key insight · </span>${ps.key_insight}</div>
+        </div>
+    `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTIONS
+═══════════════════════════════════════════════════════════════ */
+
+/* Toggle a habit card — POST /api/habits/:id/toggle */
+async function toggleHabit(id, cardEl) {
+    if (cardEl.dataset.loading) return;   // prevent double-tap
+    cardEl.dataset.loading = '1';
+
+    const willDone = !cardEl.classList.contains('done');
+
+    // Optimistic UI update
+    cardEl.classList.toggle('done');
+
+    if (willDone) {
+        const checkEl = cardEl.querySelector('.habit-check');
+        checkEl.classList.remove('pulse');
+        void checkEl.offsetWidth;
+        checkEl.classList.add('pulse');
+
+        // Find the cluster color for particles
+        const cluster = cardEl.closest('.cluster');
+        const color   = clusterColors[cluster?.dataset.color] || '#60A5FA';
+        spawnParticles(checkEl, color);
+    }
+
+    try {
+        const res  = await fetch(`/api/habits/${id}/toggle`, { method: 'POST' });
+        const data = await res.json();
+
+        // Sync with server truth
+        const habit = findHabit(id);
+        if (habit) habit.done = data.done;
+        if (data.done !== willDone) {
+            // Server disagreed — revert optimistic update
+            cardEl.classList.toggle('done');
+        }
+    } catch (e) {
+        cardEl.classList.toggle('done'); // revert on network error
+        showError('Toggle failed — check your connection');
+    } finally {
+        delete cardEl.dataset.loading;
+    }
+
+    updateProgress();
+    updateClusterBadge(cardEl);
+}
+
+/* Toggle a milestone — POST /api/milestones/:id/toggle */
+async function toggleMilestone(id, itemEl) {
+    const dot   = itemEl.querySelector('.ms-dot');
+    const label = itemEl.querySelector('.ms-label');
+    const isDone = dot.classList.contains('done');
+
+    // Optimistic
+    dot.classList.toggle('done', !isDone);
+    label.classList.toggle('done', !isDone);
+
+    try {
+        await fetch(`/api/milestones/${id}/toggle`, { method: 'POST' });
+    } catch (e) {
+        dot.classList.toggle('done', isDone);  // revert
+        label.classList.toggle('done', isDone);
+    }
+}
+
+/* Collapse/expand a cluster section */
+function toggleCluster(section) {
+    section.classList.toggle('collapsed');
+}
+
+/* Fill the input with an example goal */
+function fillGoal(text) {
+    document.getElementById('goal-input').value = text;
+    document.getElementById('goal-input').focus();
+}
+
+/* Add a goal — POST /api/goals */
+async function addGoal() {
+    const input = document.getElementById('goal-input');
+    const text  = input.value.trim();
+    if (!text) return;
+
+    setLoading(true);
+    clearError();
+
+    try {
+        const res  = await fetch('/api/goals', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ text }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            showError(data.error || 'Something went wrong');
+            return;
+        }
+
+        // Add to local state and re-render
+        appState.goals.push(data);
+        input.value = '';
+
+        const body    = document.getElementById('habits-body');
+        const empty   = body.querySelector('.empty-state');
+        if (empty) empty.remove();
+
+        const clusterEl = buildClusterEl(data);
+        body.appendChild(clusterEl);
+
+        // Scroll the new cluster into view
+        clusterEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        updateProgress();
+
+    } catch (e) {
+        showError('Request failed. Is the server running?');
+    } finally {
+        setLoading(false);
+    }
+}
+
+/* Reset all data — DELETE /api/reset */
+async function resetAll() {
+    if (!confirm('Reset all goals and habits?')) return;
+    await fetch('/api/reset', { method: 'DELETE' });
+    appState = { goals: [], streak: 0, today: '' };
+    renderAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════════════════════════════ */
+function updateProgress() {
+    const allHabits  = appState.goals.flatMap(g => g.habits);
+    const total      = allHabits.length;
+    const done       = allHabits.filter(h => h.done).length;
+    const pct        = total ? (done / total) * 100 : 0;
+
+    document.getElementById('pfill').style.width  = pct + '%';
+    document.getElementById('prog-count').textContent = `${done} / ${total} done`;
+}
+
+function updateClusterBadge(cardEl) {
+    const cluster = cardEl.closest('.cluster');
+    if (!cluster) return;
+    const goalId = cluster.dataset.goalId;
+    const goal   = appState.goals.find(g => g.id === goalId);
+    if (!goal) return;
+
+    const doneCount = goal.habits.filter(h => h.done).length;
+    const badge = document.getElementById(`badge-${goalId}`);
+    if (badge) badge.textContent = `${doneCount}/${goal.habits.length}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PARTICLE BURST — same approach as the mockup
+   Spawns 8 dots that scatter outward from the checkbox center.
+═══════════════════════════════════════════════════════════════ */
+function spawnParticles(el, color) {
+    const rect  = el.getBoundingClientRect();
+    const cx    = rect.left + rect.width  / 2;
+    const cy    = rect.top  + rect.height / 2;
+    const count = 8;
+
+    for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.cssText = `width:5px;height:5px;left:${cx-2.5}px;top:${cy-2.5}px;background:${color}`;
+        document.body.appendChild(p);
+
+        const angle  = (i / count) * 2 * Math.PI - Math.PI / 2;
+        const radius = 16 + Math.random() * 12;
+
+        p.animate(
+            [
+                { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                { transform: `translate(${Math.cos(angle)*radius}px,${Math.sin(angle)*radius}px) scale(0)`, opacity: 0 },
+            ],
+            { duration: 480, easing: 'cubic-bezier(0,0,0.2,1)', fill: 'forwards' }
+        ).finished.then(() => p.remove());
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════ */
+function findHabit(id) {
+    for (const goal of appState.goals) {
+        const h = goal.habits.find(h => h.id === id);
+        if (h) return h;
+    }
+    return null;
+}
+
+function setLoading(loading) {
+    document.getElementById('add-form').style.display    = loading ? 'none' : 'flex';
+    document.getElementById('gen-state').style.display   = loading ? 'flex' : 'none';
+    document.getElementById('add-btn').disabled          = loading;
+}
+
+function showError(msg) {
+    const el = document.getElementById('error-banner');
+    el.textContent  = msg;
+    el.style.display = 'block';
+}
+
+function clearError() {
+    const el = document.getElementById('error-banner');
+    el.style.display = 'none';
+}
+
+/* ── START ── */
+init();
+</script>
+</body>
+</html>

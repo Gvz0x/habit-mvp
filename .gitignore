@@ -1,0 +1,21 @@
+# API key and local config — never commit these
+.env
+
+# Auto-generated data file
+data.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

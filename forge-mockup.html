@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forge — Build Who You're Becoming</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #07071A;
+            --surface:   #0C0C20;
+            --surface2:  #11112A;
+            --card:      rgba(255,255,255,0.035);
+            --card-h:    rgba(255,255,255,0.06);
+            --border:    rgba(255,255,255,0.07);
+            --border-b:  rgba(255,255,255,0.13);
+
+            --body:      #FF6B6B;
+            --body-dim:  rgba(255,107,107,0.13);
+            --fin:       #3EDDAA;
+            --fin-dim:   rgba(62,221,170,0.13);
+            --pro:       #7C6FFF;
+            --pro-dim:   rgba(124,111,255,0.13);
+
+            --text:      #EEEEFF;
+            --muted:     #7070A0;
+            --subtle:    #353558;
+
+            --r:  16px;
+            --rs: 10px;
+            --rx: 6px;
+        }
+
+        html, body {
+            height: 100%; overflow: hidden;
+            background:
+                radial-gradient(ellipse at 15% 15%, rgba(124,111,255,0.09) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 85%, rgba(255,107,107,0.07) 0%, transparent 55%),
+                var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .app {
+            display: grid;
+            grid-template-columns: 230px 1fr 290px;
+            height: 100vh;
+        }
+
+        /* ─── SCROLLBAR ─────────────────────────── */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--subtle); border-radius: 2px; }
+
+        /* ─── SIDEBAR ───────────────────────────── */
+        .sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            padding: 24px 14px;
+            overflow-y: auto;
+        }
+
+        .logo {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 10px; margin-bottom: 20px;
+        }
+        .logo-icon {
+            width: 34px; height: 34px; border-radius: 9px;
+            background: linear-gradient(135deg, #FF6B6B 0%, #7C6FFF 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px; flex-shrink: 0;
+        }
+        .logo-text {
+            font-size: 19px; font-weight: 900; letter-spacing: -0.7px;
+            background: linear-gradient(135deg, #FF9090, #B8B0FF);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .nav-label {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.2px;
+            color: var(--subtle); padding: 6px 10px 4px;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 10px; border-radius: var(--rs);
+            color: var(--muted); font-weight: 500;
+            cursor: pointer; text-decoration: none;
+            transition: all 0.15s;
+        }
+        .nav-item:hover { background: var(--card-h); color: var(--text); }
+        .nav-item.active { background: rgba(124,111,255,0.14); color: #C0B8FF; }
+        .nav-icon { width: 17px; height: 17px; opacity: 0.85; flex-shrink: 0; }
+
+        .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+        .cluster-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 10px; border-radius: var(--rs);
+            cursor: pointer; transition: background 0.15s;
+        }
+        .cluster-item:hover { background: var(--card-h); }
+        .cluster-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .cluster-info { flex: 1; min-width: 0; }
+        .cluster-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cluster-sub { font-size: 10px; color: var(--muted); }
+        .cluster-pct { font-size: 11px; font-weight: 800; }
+
+        .user-row {
+            margin-top: auto; display: flex; align-items: center; gap: 10px;
+            padding: 10px; border-radius: var(--rs);
+            border: 1px solid var(--border); background: var(--card);
+        }
+        .avatar {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: linear-gradient(135deg, #FF6B6B, #7C6FFF);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 800; flex-shrink: 0;
+        }
+        .user-name { font-size: 12px; font-weight: 600; }
+        .user-sub { font-size: 10px; color: var(--muted); }
+
+        /* ─── MAIN ──────────────────────────────── */
+        .main {
+            overflow-y: auto; padding: 28px 30px;
+            display: flex; flex-direction: column; gap: 26px;
+        }
+
+        .top-bar { display: flex; align-items: flex-start; justify-content: space-between; }
+        .greeting { font-size: 26px; font-weight: 900; letter-spacing: -0.8px; line-height: 1.15; }
+        .greeting span {
+            background: linear-gradient(135deg, #FF9090 0%, #B8B0FF 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .subtext { color: var(--muted); font-size: 13px; margin-top: 5px; }
+
+        .streak {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,160,50,0.09);
+            border: 1px solid rgba(255,160,50,0.22);
+            border-radius: 40px; padding: 10px 18px;
+        }
+        .streak-num { font-size: 24px; font-weight: 900; color: #FFA032; letter-spacing: -1px; }
+        .streak-label { font-size: 10px; color: #FFA032; opacity: 0.75; font-weight: 600; line-height: 1.3; }
+
+        /* ROOT CARDS */
+        .section-label {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.2px;
+            color: var(--muted); margin-bottom: 12px;
+        }
+
+        .roots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+        .root-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 18px 18px 16px;
+            position: relative; overflow: hidden;
+            cursor: pointer; transition: transform 0.2s, background 0.2s;
+        }
+        .root-card:hover { background: var(--card-h); transform: translateY(-3px); }
+        .root-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+        }
+        .root-card.rc-body::before { background: var(--body); }
+        .root-card.rc-fin::before  { background: var(--fin);  }
+        .root-card.rc-pro::before  { background: var(--pro);  }
+
+        .root-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .root-icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 19px;
+        }
+        .rc-body .root-icon { background: var(--body-dim); }
+        .rc-fin  .root-icon { background: var(--fin-dim);  }
+        .rc-pro  .root-icon { background: var(--pro-dim);  }
+
+        .root-pct { font-size: 14px; font-weight: 800; }
+        .rc-body .root-pct { color: var(--body); }
+        .rc-fin  .root-pct { color: var(--fin);  }
+        .rc-pro  .root-pct { color: var(--pro);  }
+
+        .root-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+        .root-sub  { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
+
+        .pbar { height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
+        .pfill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+        .rc-body .pfill { background: var(--body); }
+        .rc-fin  .pfill { background: var(--fin);  }
+        .rc-pro  .pfill { background: var(--pro);  }
+
+        .root-next { font-size: 10px; color: var(--subtle); margin-top: 8px; }
+
+        /* HABIT CARDS */
+        .habits { display: flex; flex-direction: column; gap: 7px; }
+
+        .habit {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--rs); padding: 13px 16px;
+            display: flex; align-items: center; gap: 13px;
+            cursor: pointer; transition: all 0.15s; user-select: none;
+        }
+        .habit:hover { background: var(--card-h); border-color: var(--border-b); }
+        .habit.checked { opacity: 0.45; }
+        .habit.checked .hname { text-decoration: line-through; }
+
+        .hcheck {
+            width: 22px; height: 22px; border-radius: 6px;
+            border: 2px solid; display: flex; align-items: center;
+            justify-content: center; flex-shrink: 0;
+            transition: all 0.18s; font-size: 12px;
+            color: transparent;
+        }
+        .habit.hb .hcheck { border-color: var(--body); }
+        .habit.hf .hcheck { border-color: var(--fin);  }
+        .habit.hp .hcheck { border-color: var(--pro);  }
+
+        .habit.checked.hb .hcheck { background: var(--body); border-color: var(--body); color: white; }
+        .habit.checked.hf .hcheck { background: var(--fin);  border-color: var(--fin);  color: #07071A; }
+        .habit.checked.hp .hcheck { background: var(--pro);  border-color: var(--pro);  color: white; }
+
+        .hinfo { flex: 1; min-width: 0; }
+        .hname { font-size: 13px; font-weight: 600; }
+        .hmeta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+        .htags { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+        .htag { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+        .htag.hb { background: var(--body-dim); color: var(--body); }
+        .htag.hf { background: var(--fin-dim);  color: var(--fin);  }
+        .htag.hp { background: var(--pro-dim);  color: var(--pro);  }
+        .stars { font-size: 10px; color: #FFA032; letter-spacing: 0.5px; }
+
+        /* ─── RIGHT PANEL ───────────────────────── */
+        .panel {
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            padding: 28px 20px;
+            display: flex; flex-direction: column; gap: 18px;
+            overflow-y: auto;
+        }
+
+        .p-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 16px;
+        }
+        .p-title { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+        .p-sub   { font-size: 10px; color: var(--muted); margin-bottom: 14px; }
+
+        /* Progress ring */
+        .ring-wrap { display: flex; align-items: center; gap: 14px; }
+        .ring-svg-wrap {
+            position: relative; width: 56px; height: 56px; flex-shrink: 0;
+        }
+        .ring-svg { transform: rotate(-90deg); }
+        .ring-bg   { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 4; }
+        .ring-fill {
+            fill: none; stroke-width: 4; stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        .ring-label {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 800;
+        }
+        .ring-info .ri-title { font-size: 13px; font-weight: 700; }
+        .ring-info .ri-sub   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+        /* Bar chart */
+        .bars {
+            display: flex; align-items: flex-end; gap: 5px; height: 72px;
+        }
+        .bar-col {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-end; gap: 5px; height: 100%;
+        }
+        .bar-fill { width: 100%; border-radius: 4px 4px 0 0; transition: height 0.4s ease; }
+        .bar-day  { font-size: 9px; color: var(--subtle); text-transform: uppercase; font-weight: 600; }
+        .bar-day.today { color: var(--pro); }
+
+        /* ROI list */
+        .roi-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 7px 0; border-bottom: 1px solid var(--border);
+        }
+        .roi-row:last-child { border-bottom: none; }
+        .roi-habit { font-size: 11px; color: var(--muted); }
+        .roi-rate  { font-size: 11px; font-weight: 800; }
+
+        /* Milestone */
+        .milestone {
+            background: linear-gradient(135deg, rgba(124,111,255,0.14), rgba(255,107,107,0.08));
+            border: 1px solid rgba(124,111,255,0.22);
+            border-radius: var(--r); padding: 16px;
+        }
+        .ms-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--pro); margin-bottom: 6px; }
+        .ms-text  { font-size: 13px; font-weight: 700; line-height: 1.4; }
+        .ms-sub   { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+        /* CTA Button */
+        .cta {
+            background: linear-gradient(135deg, #7C6FFF, #FF6B6B);
+            border: none; border-radius: var(--rs); padding: 13px 16px;
+            color: white; font-size: 13px; font-weight: 700;
+            cursor: pointer; width: 100%; letter-spacing: 0.3px;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .cta:hover   { opacity: 0.88; }
+        .cta:active  { transform: scale(0.98); }
+
+        /* ─── MODAL ─────────────────────────────── */
+        .overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(7,7,26,0.82); backdrop-filter: blur(6px);
+            z-index: 100; align-items: center; justify-content: center;
+        }
+        .overlay.open { display: flex; }
+        .modal {
+            background: var(--surface2); border: 1px solid var(--border-b);
+            border-radius: 20px; padding: 32px; width: 440px; max-width: 94vw;
+            animation: pop-in 0.22s cubic-bezier(.34,1.56,.64,1);
+        }
+        @keyframes pop-in {
+            from { transform: scale(0.92); opacity: 0; }
+            to   { transform: scale(1);    opacity: 1; }
+        }
+        .modal-title { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 4px; }
+        .modal-sub   { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+        .q-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+        .q-input {
+            width: 100%; background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--rs); padding: 11px 14px; color: var(--text);
+            font-family: inherit; font-size: 13px; resize: none;
+            outline: none; transition: border-color 0.15s; margin-bottom: 16px;
+        }
+        .q-input:focus { border-color: var(--pro); }
+
+        .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+        .btn-cancel {
+            flex: 1; background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--rs); padding: 11px; color: var(--muted);
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-cancel:hover { background: var(--card-h); color: var(--text); }
+        .btn-save {
+            flex: 2; background: linear-gradient(135deg, #7C6FFF, #FF6B6B);
+            border: none; border-radius: var(--rs); padding: 11px;
+            color: white; font-size: 13px; font-weight: 700; cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-save:hover { opacity: 0.88; }
+
+        /* Animate habit check */
+        @keyframes check-pop {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.35); }
+            100% { transform: scale(1); }
+        }
+        .check-anim { animation: check-pop 0.22s ease; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+
+    <!-- ══════════ SIDEBAR ══════════ -->
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">⚡</div>
+            <span class="logo-text">Forge</span>
+        </div>
+
+        <div class="nav-label">Menu</div>
+        <a class="nav-item active" href="#">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+            Today
+        </a>
+        <a class="nav-item" href="#">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
+            </svg>
+            Goals
+        </a>
+        <a class="nav-item" href="#">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Insights
+        </a>
+        <a class="nav-item" href="#">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            History
+        </a>
+
+        <div class="divider"></div>
+
+        <div class="nav-label">Goal Clusters</div>
+
+        <div class="cluster-item">
+            <div class="cluster-dot" style="background:var(--body)"></div>
+            <div class="cluster-info">
+                <div class="cluster-name">Body & Identity</div>
+                <div class="cluster-sub">70KG · BJJ Belt</div>
+            </div>
+            <div class="cluster-pct" style="color:var(--body)">38%</div>
+        </div>
+
+        <div class="cluster-item">
+            <div class="cluster-dot" style="background:var(--fin)"></div>
+            <div class="cluster-info">
+                <div class="cluster-name">Financial Freedom</div>
+                <div class="cluster-sub">Move out · Savings</div>
+            </div>
+            <div class="cluster-pct" style="color:var(--fin)">31%</div>
+        </div>
+
+        <div class="cluster-item">
+            <div class="cluster-dot" style="background:var(--pro)"></div>
+            <div class="cluster-info">
+                <div class="cluster-name">Professional Edge</div>
+                <div class="cluster-sub">Consultancy · Pipeline</div>
+            </div>
+            <div class="cluster-pct" style="color:var(--pro)">67%</div>
+        </div>
+
+        <div class="divider" style="margin-top:auto"></div>
+
+        <div class="user-row">
+            <div class="avatar">G</div>
+            <div>
+                <div class="user-name">Gio</div>
+                <div class="user-sub">12-day streak 🔥</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ══════════ MAIN ══════════ -->
+    <main class="main">
+
+        <!-- Header -->
+        <div class="top-bar">
+            <div>
+                <div class="greeting">Good morning, <span>Gio.</span></div>
+                <div class="subtext">Thursday, May 28 · 9 habits on deck today</div>
+            </div>
+            <div class="streak">
+                <span style="font-size:22px">🔥</span>
+                <div>
+                    <div class="streak-num">12</div>
+                    <div class="streak-label">day streak</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Root Goals -->
+        <div>
+            <div class="section-label">Root Goals</div>
+            <div class="roots">
+                <div class="root-card rc-body">
+                    <div class="root-top">
+                        <div class="root-icon">🥋</div>
+                        <div class="root-pct">38%</div>
+                    </div>
+                    <div class="root-name">Body & Identity</div>
+                    <div class="root-sub">70KG target · BJJ Black Belt</div>
+                    <div class="pbar"><div class="pfill" style="width:38%"></div></div>
+                    <div class="root-next">Next → Hit 74KG → Prep blue belt grading</div>
+                </div>
+
+                <div class="root-card rc-fin">
+                    <div class="root-top">
+                        <div class="root-icon">🏠</div>
+                        <div class="root-pct">31%</div>
+                    </div>
+                    <div class="root-name">Financial Freedom</div>
+                    <div class="root-sub">Move out · Monthly surplus €400</div>
+                    <div class="pbar"><div class="pfill" style="width:31%"></div></div>
+                    <div class="root-next">Next → Build 3-month emergency fund</div>
+                </div>
+
+                <div class="root-card rc-pro">
+                    <div class="root-top">
+                        <div class="root-icon">📊</div>
+                        <div class="root-pct">67%</div>
+                    </div>
+                    <div class="root-name">Professional Edge</div>
+                    <div class="root-sub">BigQuery + Looker · Consultancy</div>
+                    <div class="pbar"><div class="pfill" style="width:67%"></div></div>
+                    <div class="root-next">Next → Ship pipeline MVP to stakeholders</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today's Habits -->
+        <div>
+            <div class="section-label">Today's Habits — <span id="done-count" style="color:var(--text)">3</span> / <span id="total-count">9</span> done</div>
+            <div class="habits" id="habit-list">
+
+                <div class="habit hb" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">Train BJJ — evening session</div>
+                        <div class="hmeta">2 of 4 sessions this week · 60 min</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hb">Body</span>
+                        <span class="stars">★★★★</span>
+                    </div>
+                </div>
+
+                <div class="habit hb" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">10-min morning mobility</div>
+                        <div class="hmeta">Recovery + injury prevention</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hb">Body</span>
+                        <span class="stars">★★</span>
+                    </div>
+                </div>
+
+                <div class="habit hb checked" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">Hit protein target (140g)</div>
+                        <div class="hmeta">Logged via MyFitnessPal</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hb">Body</span>
+                        <span class="stars">★★★</span>
+                    </div>
+                </div>
+
+                <div class="habit hf" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">Log all expenses today</div>
+                        <div class="hmeta">Daily tracking · 2 min task</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hf">Finance</span>
+                        <span class="stars">★★★★</span>
+                    </div>
+                </div>
+
+                <div class="habit hf checked" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">Transfer €50 to savings pot</div>
+                        <div class="hmeta">Automated on salary day</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hf">Finance</span>
+                        <span class="stars">★★★★</span>
+                    </div>
+                </div>
+
+                <div class="habit hf" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">No impulse buys today</div>
+                        <div class="hmeta">Review cart before checkout</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hf">Finance</span>
+                        <span class="stars">★★</span>
+                    </div>
+                </div>
+
+                <div class="habit hp checked" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">1hr deep work — dbt + BigQuery pipeline</div>
+                        <div class="hmeta">No Slack, no interruptions · pomodoro</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hp">Pro</span>
+                        <span class="stars">★★★★★</span>
+                    </div>
+                </div>
+
+                <div class="habit hp" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">Write one consultancy idea or post draft</div>
+                        <div class="hmeta">LinkedIn / personal notes · 15 min</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hp">Pro</span>
+                        <span class="stars">★★★</span>
+                    </div>
+                </div>
+
+                <div class="habit hp" onclick="toggle(this)">
+                    <div class="hcheck">✓</div>
+                    <div class="hinfo">
+                        <div class="hname">Review Looker dashboard for stakeholders</div>
+                        <div class="hmeta">Check charts, annotations, filters</div>
+                    </div>
+                    <div class="htags">
+                        <span class="htag hp">Pro</span>
+                        <span class="stars">★★★</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- ══════════ RIGHT PANEL ══════════ -->
+    <aside class="panel">
+
+        <!-- Today's ring -->
+        <div class="p-card">
+            <div class="p-title">Today's Progress</div>
+            <div class="p-sub">Thursday, May 28</div>
+            <div class="ring-wrap">
+                <div class="ring-svg-wrap">
+                    <svg class="ring-svg" width="56" height="56" viewBox="0 0 56 56">
+                        <circle class="ring-bg" cx="28" cy="28" r="23"/>
+                        <circle class="ring-fill" cx="28" cy="28" r="23"
+                            stroke="url(#rg)"
+                            id="main-ring"
+                            stroke-dasharray="144.51"
+                            stroke-dashoffset="96.34"/>
+                        <defs>
+                            <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#7C6FFF"/>
+                                <stop offset="100%" stop-color="#FF6B6B"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div class="ring-label" id="ring-label" style="color:#B8B0FF">3/9</div>
+                </div>
+                <div class="ring-info">
+                    <div class="ri-title" id="ring-title">3 of 9 done</div>
+                    <div class="ri-sub" id="ring-sub">Solid start. Keep building.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly bar chart -->
+        <div class="p-card">
+            <div class="p-title">This Week</div>
+            <div class="p-sub" style="margin-bottom:14px">Habit completion rate</div>
+            <div class="bars">
+                <div class="bar-col">
+                    <div class="bar-fill" style="height:72%;background:rgba(124,111,255,0.45)"></div>
+                    <div class="bar-day">Mon</div>
+                </div>
+                <div class="bar-col">
+                    <div class="bar-fill" style="height:88%;background:rgba(124,111,255,0.55)"></div>
+                    <div class="bar-day">Tue</div>
+                </div>
+                <div class="bar-col">
+                    <div class="bar-fill" style="height:56%;background:rgba(124,111,255,0.38)"></div>
+                    <div class="bar-day">Wed</div>
+                </div>
+                <div class="bar-col">
+                    <div class="bar-fill" style="height:35%;background:linear-gradient(to top,#7C6FFF,#FF6B6B)"></div>
+                    <div class="bar-day today">Thu</div>
+                </div>
+                <div class="bar-col">
+                    <div class="bar-fill" style="height:2%;background:rgba(255,255,255,0.07)"></div>
+                    <div class="bar-day">Fri</div>
+                </div>
+                <div class="bar-col">
+                    <div class="bar-fill" style="height:2%;background:rgba(255,255,255,0.07)"></div>
+                    <div class="bar-day">Sat</div>
+                </div>
+                <div class="bar-col">
+                    <div class="bar-fill" style="height:2%;background:rgba(255,255,255,0.07)"></div>
+                    <div class="bar-day">Sun</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROI Leaderboard -->
+        <div class="p-card">
+            <div class="p-title">Top ROI Habits (4-wk rate)</div>
+            <div style="margin-top:4px">
+                <div class="roi-row">
+                    <span class="roi-habit">dbt / BigQuery deep work</span>
+                    <span class="roi-rate" style="color:var(--pro)">92%</span>
+                </div>
+                <div class="roi-row">
+                    <span class="roi-habit">BJJ training session</span>
+                    <span class="roi-rate" style="color:var(--body)">89%</span>
+                </div>
+                <div class="roi-row">
+                    <span class="roi-habit">Savings transfer</span>
+                    <span class="roi-rate" style="color:var(--fin)">100%</span>
+                </div>
+                <div class="roi-row">
+                    <span class="roi-habit">Expense logging</span>
+                    <span class="roi-rate" style="color:var(--fin)">71%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Next milestone -->
+        <div class="milestone">
+            <div class="ms-label">Next Milestone</div>
+            <div class="ms-text">Pipeline MVP → Stakeholder demo</div>
+            <div class="ms-sub">~14 days away · 3 habits aligned to this</div>
+        </div>
+
+        <!-- Weekly Honest Hour CTA -->
+        <button class="cta" onclick="openModal()">
+            Weekly Honest Hour →
+        </button>
+
+    </aside>
+</div>
+
+<!-- ══════════ MODAL ══════════ -->
+<div class="overlay" id="overlay" onclick="closeOnOverlay(event)">
+    <div class="modal">
+        <div class="modal-title">Weekly Honest Hour</div>
+        <div class="modal-sub">3 questions. No spin. Just reality.</div>
+
+        <div class="q-label">What actually worked this week?</div>
+        <textarea class="q-input" rows="2" placeholder="e.g. Hit all BJJ sessions. Deep work block was solid Mon + Tue."></textarea>
+
+        <div class="q-label">What got in the way?</div>
+        <textarea class="q-input" rows="2" placeholder="e.g. Missed expense logging twice. Social plans broke the routine Weds."></textarea>
+
+        <div class="q-label">Theory for next week?</div>
+        <textarea class="q-input" rows="2" placeholder="e.g. Set phone reminder for expenses. Block Weds evening for pipeline."></textarea>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="btn-save" onclick="saveModal()">Save Reflection →</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CIRC = 2 * Math.PI * 23; // 144.51
+
+    function toggle(el) {
+        el.classList.toggle('checked');
+        const check = el.querySelector('.hcheck');
+        check.classList.remove('check-anim');
+        void check.offsetWidth; // reflow to re-trigger
+        check.classList.add('check-anim');
+        updateProgress();
+    }
+
+    function updateProgress() {
+        const all   = document.querySelectorAll('.habit');
+        const done  = document.querySelectorAll('.habit.checked');
+        const total = all.length;
+        const count = done.length;
+        const pct   = count / total;
+
+        // Ring
+        document.getElementById('main-ring').style.strokeDashoffset = CIRC * (1 - pct);
+        document.getElementById('ring-label').textContent = count + '/' + total;
+        document.getElementById('ring-title').textContent = count + ' of ' + total + ' done';
+
+        const subs = [
+            'The day is yours — get moving.',
+            'Solid start. Keep building.',
+            'Half way. Finish strong.',
+            'Almost there. One more push.',
+            'All done. You forged today. 🔥'
+        ];
+        const idx = count === 0 ? 0 : count < total * 0.3 ? 1 : count < total * 0.6 ? 2 : count < total ? 3 : 4;
+        document.getElementById('ring-sub').textContent = subs[idx];
+
+        // Counter
+        document.getElementById('done-count').textContent = count;
+        document.getElementById('total-count').textContent = total;
+    }
+
+    function openModal()  { document.getElementById('overlay').classList.add('open'); }
+    function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+
+    function closeOnOverlay(e) {
+        if (e.target === document.getElementById('overlay')) closeModal();
+    }
+
+    function saveModal() {
+        closeModal();
+        const btn = document.querySelector('.cta');
+        btn.textContent = 'Reflection saved ✓';
+        btn.style.background = 'rgba(62,221,170,0.2)';
+        btn.style.color = 'var(--fin)';
+        btn.style.border = '1px solid rgba(62,221,170,0.3)';
+        setTimeout(() => {
+            btn.textContent = 'Weekly Honest Hour →';
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.style.border = '';
+        }, 3000);
+    }
+</script>
+</body>
+</html>
